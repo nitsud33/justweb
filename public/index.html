@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokemon Card Finder</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary: #ff6b35;
+      --primary-dark: #e55a2b;
+      --secondary: #3498db;
+      --bg: #0f0f1a;
+      --bg-card: #1a1a2e;
+      --bg-input: #16213e;
+      --text: #ffffff;
+      --text-muted: #a0a0b0;
+      --border: #2a2a4a;
+      --success: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    
+    header {
+      background: linear-gradient(135deg, var(--bg-card), var(--bg-input));
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    
+    .logo span {
+      font-size: 2rem;
+    }
+    
+    nav {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    nav button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    nav button:hover, nav button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
+    .stats-bar .stat {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    
+    .stats-bar .stat-value {
+      color: var(--primary);
+      font-weight: bold;
+    }
+    
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .page {
+      display: none;
+    }
+    
+    .page.active {
+      display: block;
+    }
+    
+    /* Auth Styles */
+    .auth-container {
+      max-width: 400px;
+      margin: 4rem auto;
+      background: var(--bg-card);
+      padding: 2rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+    
+    .auth-container h2 {
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      border-color: var(--primary);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .btn-small {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+    
+    .btn-full {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .google-btn {
+      background: white;
+      color: #333;
+      margin-top: 1rem;
+    }
+    
+    .auth-toggle {
+      text-align: center;
+      margin-top: 1rem;
+      color: var(--text-muted);
+    }
+    
+    .auth-toggle a {
+      color: var(--primary);
+      cursor: pointer;
+    }
+    
+    /* Search Section */
+    .search-section {
+      margin-bottom: 2rem;
+    }
+    
+    .search-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .search-bar input {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    
+    .search-bar input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    /* Card Grid */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .card-item {
+      background: var(--bg-card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    
+    .card-item:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 25px rgba(255, 107, 53, 0.2);
+      border-color: var(--primary);
+    }
+    
+    .card-item img {
+      width: 100%;
+      aspect-ratio: 2.5/3.5;
+      object-fit: contain;
+      background: #1a1a2e;
+    }
+    
+    .card-item .card-info {
+      padding: 0.75rem;
+    }
+    
+    .card-item .card-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .card-item .card-set {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    
+    .card-item .card-price {
+      font-weight: bold;
+      color: var(--success);
+    }
+    
+    .card-item .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    .card-item .card-actions button {
+      flex: 1;
+      padding: 0.4rem;
+      font-size: 0.75rem;
+    }
+    
+    .card-quantity {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--primary);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .card-item {
+      position: relative;
+    }
+    
+    /* Set Browser */
+    .set-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    
+    .set-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .set-item:hover {
+      border-color: var(--primary);
+      transform: translateX(4px);
+    }
+    
+    .set-item img {
+      width: 60px;
+      height: 60px;
+      object-fit: contain;
+    }
+    
+    .set-item .set-info {
+      flex: 1;
+    }
+    
+    .set-item .set-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    
+    .set-item .set-meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
+    .set-item .set-progress {
+      text-align: right;
+    }
+    
+    .progress-bar {
+      width: 80px;
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.3s;
+    }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal {
+      background: var(--bg-card);
+      border-radius: 16px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+    
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-header h3 {
+      font-size: 1.25rem;
+    }
+    
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    
+    .modal-body {
+      padding: 1.5rem;
+    }
+    
+    .modal-card-detail {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    .modal-card-detail img {
+      width: 200px;
+      border-radius: 8px;
+    }
+    
+    .modal-card-detail .detail-info {
+      flex: 1;
+    }
+    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    
+    .detail-label {
+      color: var(--text-muted);
+    }
+    
+    .detail-value {
+      font-weight: 500;
+    }
+    
+    /* Page Headers */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .page-header h1 {
+      font-size: 1.75rem;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    
+    .empty-state .icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+    
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+    
+    .loading::after {
+      content: '';
+      animation: dots 1.5s infinite;
+    }
+    
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+    
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1001;
+    }
+    
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    
+    .toast.success {
+      border-color: var(--success);
+    }
+    
+    .toast.error {
+      border-color: var(--danger);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+      }
+      
+      nav {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      .stats-bar {
+        display: none;
+      }
+      
+      .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+      }
+      
+      .modal-card-detail {
+        flex-direction: column;
+      }
+      
+      .modal-card-detail img {
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto;
+      }
+      
+      main {
+        padding: 1rem;
+      }
+    }
+
+    /* Priority badges */
+    .priority-badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+    
+    .priority-1 { background: var(--text-muted); }
+    .priority-2 { background: var(--warning); }
+    .priority-3 { background: var(--danger); }
+
+    /* Rarity colors */
+    .rarity-common { color: #a0a0a0; }
+    .rarity-uncommon { color: #3498db; }
+    .rarity-rare { color: #f39c12; }
+    .rarity-holo { color: #9b59b6; }
+    .rarity-ultra { color: #e74c3c; }
+    .rarity-secret { color: #f1c40f; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <span>🎴</span>
+      Pokemon Card Finder
+    </div>
+    
+    <nav id="mainNav" style="display: none;">
+      <button data-page="search" class="active">🔍 Search</button>
+      <button data-page="collection">📦 Collection</button>
+      <button data-page="want-list">💫 Want List</button>
+      <button data-page="sets">📚 Sets</button>
+    </nav>
+    
+    <div class="user-info" id="userInfo" style="display: none;">
+      <div class="stats-bar">
+        <div class="stat">
+          <span>Cards:</span>
+          <span class="stat-value" id="statCards">0</span>
+        </div>
+        <div class="stat">
+          <span>Value:</span>
+          <span class="stat-value" id="statValue">$0</span>
+        </div>
+        <div class="stat">
+          <span>Want:</span>
+          <span class="stat-value" id="statWant">0</span>
+        </div>
+      </div>
+      <span id="userName"></span>
+      <button class="btn btn-secondary btn-small" onclick="logout()">Logout</button>
+    </div>
+  </header>
+  
+  <main>
+    <!-- Auth Page -->
+    <div class="page active" id="authPage">
+      <div class="auth-container">
+        <h2 id="authTitle">Welcome Back</h2>
+        
+        <form id="authForm">
+          <div class="form-group" id="nameGroup" style="display: none;">
+            <label>Name</label>
+            <input type="text" id="nameInput" placeholder="Your name">
+          </div>
+          
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="emailInput" placeholder="your@email.com" required>
+          </div>
+          
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="passwordInput" placeholder="••••••••" required>
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-full" id="authSubmit">Sign In</button>
+        </form>
+        
+        <button class="btn google-btn btn-full" id="googleBtn" onclick="window.location='/auth/google'" style="display: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        
+        <div class="auth-toggle">
+          <span id="authToggleText">Don't have an account?</span>
+          <a onclick="toggleAuthMode()"><span id="authToggleLink">Sign Up</span></a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Search Page -->
+    <div class="page" id="searchPage">
+      <div class="search-section">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Search for Pokemon cards (e.g., Charizard, Pikachu)...">
+          <button class="btn btn-primary" onclick="searchCards()">🔍 Search</button>
+        </div>
+      </div>
+      
+      <div id="searchResults">
+        <div class="empty-state">
+          <div class="icon">🔎</div>
+          <h3>Search for Pokemon Cards</h3>
+          <p>Enter a card name to find it in the Pokemon TCG database</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Collection Page -->
+    <div class="page" id="collectionPage">
+      <div class="page-header">
+        <h1>📦 My Collection</h1>
+        <div>
+          <span id="collectionTotal" style="color: var(--success); font-weight: bold; margin-right: 1rem;"></span>
+        </div>
+      </div>
+      
+      <div id="collectionResults">
+        <div class="empty-state">
+          <div class="icon">📦</div>
+          <h3>Your Collection is Empty</h3>
+          <p>Search for cards and add them to your collection!</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Want List Page -->
+    <div class="page" id="wantListPage">
+      <div class="page-header">
+        <h1>💫 Want List</h1>
+      </div>
+      
+      <div id="wantListResults">
+        <div class="empty-state">
+          <div class="icon">💫</div>
+          <h3>Your Want List is Empty</h3>
+          <p>Add cards you're looking for to track them!</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Sets Page -->
+    <div class="page" id="setsPage">
+      <div class="page-header">
+        <h1>📚 Pokemon TCG Sets</h1>
+      </div>
+      
+      <div class="search-bar" style="margin-bottom: 1.5rem;">
+        <input type="text" id="setSearchInput" placeholder="Filter sets..." oninput="filterSets()">
+      </div>
+      
+      <div id="setsResults">
+        <div class="loading">Loading sets</div>
+      </div>
+    </div>
+    
+    <!-- Set Detail Page -->
+    <div class="page" id="setDetailPage">
+      <div class="page-header">
+        <h1 id="setDetailTitle">Set Name</h1>
+        <button class="btn btn-secondary" onclick="showPage('sets')">← Back to Sets</button>
+      </div>
+      
+      <div style="margin-bottom: 1rem;">
+        <span id="setCompletionText" style="color: var(--text-muted);"></span>
+      </div>
+      
+      <div id="setDetailResults">
+        <div class="loading">Loading cards</div>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Card Detail Modal -->
+  <div class="modal-overlay" id="cardModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalCardName">Card Name</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-card-detail">
+          <img id="modalCardImage" src="" alt="">
+          <div class="detail-info">
+            <div class="detail-row">
+              <span class="detail-label">Set</span>
+              <span class="detail-value" id="modalCardSet">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Number</span>
+              <span class="detail-value" id="modalCardNumber">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Rarity</span>
+              <span class="detail-value" id="modalCardRarity">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Market Price</span>
+              <span class="detail-value" id="modalCardPrice" style="color: var(--success);">-</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Artist</span>
+              <span class="detail-value" id="modalCardArtist">-</span>
+            </div>
+            
+            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn btn-success" id="modalAddCollection" onclick="addToCollection()">
+                ➕ Add to Collection
+              </button>
+              <button class="btn btn-secondary" id="modalAddWantList" onclick="addToWantList()">
+                💫 Add to Want List
+              </button>
+            </div>
+            
+            <div id="modalTcgLinks" style="margin-top: 1rem;">
+              <a id="tcgplayerLink" href="#" target="_blank" class="btn btn-secondary btn-small">View on TCGPlayer</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span id="toastMessage"></span>
+  </div>
+  
+  <script>
+    // State
+    let currentUser = null;
+    let currentCard = null;
+    let allSets = [];
+    let myCollection = [];
+    let myWantList = [];
+    
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();
+      checkGoogleAuth();
+      
+      // Enter key for search
+      document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchCards();
+      });
+      
+      // Nav buttons
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const page = btn.dataset.page;
+          showPage(page);
+          document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+      
+      // Auth form
+      document.getElementById('authForm').addEventListener('submit', handleAuth);
+      
+      // Close modal on overlay click
+      document.getElementById('cardModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeModal();
+      });
+    });
+    
+    // Auth
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+          const data = await res.json();
+          currentUser = data.user;
+          onLogin(data);
+        }
+      } catch (e) {}
+    }
+    
+    async function checkGoogleAuth() {
+      try {
+        const res = await fetch('/api/auth/providers');
+        const data = await res.json();
+        if (data.google) {
+          document.getElementById('googleBtn').style.display = 'flex';
+        }
+      } catch (e) {}
+    }
+    
+    let isSignUp = false;
+    
+    function toggleAuthMode() {
+      isSignUp = !isSignUp;
+      document.getElementById('authTitle').textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+      document.getElementById('nameGroup').style.display = isSignUp ? 'block' : 'none';
+      document.getElementById('authSubmit').textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      document.getElementById('authToggleText').textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
+      document.getElementById('authToggleLink').textContent = isSignUp ? 'Sign In' : 'Sign Up';
+    }
+    
+    async function handleAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById('emailInput').value;
+      const password = document.getElementById('passwordInput').value;
+      const name = document.getElementById('nameInput').value;
+      
+      const endpoint = isSignUp ? '/api/signup' : '/api/login';
+      const body = isSignUp ? { email, password, name } : { email, password };
+      
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          showToast(data.error || 'Authentication failed', 'error');
+          return;
+        }
+        
+        checkAuth();
+      } catch (e) {
+        showToast('Network error', 'error');
+      }
+    }
+    
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      currentUser = null;
+      document.getElementById('mainNav').style.display = 'none';
+      document.getElementById('userInfo').style.display = 'none';
+      showPage('auth');
+      document.getElementById('authPage').classList.add('active');
+    }
+    
+    function onLogin(data) {
+      document.getElementById('authPage').classList.remove('active');
+      document.getElementById('mainNav').style.display = 'flex';
+      document.getElementById('userInfo').style.display = 'flex';
+      document.getElementById('userName').textContent = data.user.name;
+      
+      updateStats(data.stats);
+      showPage('search');
+      loadCollection();
+      loadWantList();
+      loadSets();
+    }
+    
+    function updateStats(stats) {
+      document.getElementById('statCards').textContent = stats?.totalQuantity || 0;
+      document.getElementById('statValue').textContent = '$' + (stats?.totalValue || 0).toFixed(2);
+      document.getElementById('statWant').textContent = stats?.wantListCount || 0;
+    }
+    
+    // Navigation
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(page + 'Page').classList.add('active');
+      
+      // Update nav buttons
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.page === page);
+      });
+    }
+    
+    // Search
+    async function searchCards() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return;
+      
+      const resultsDiv = document.getElementById('searchResults');
+      resultsDiv.innerHTML = '<div class="loading">Searching</div>';
+      
+      try {
+        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(query)}&pageSize=40`);
+        const data = await res.json();
+        
+        if (data.data && data.data.length > 0) {
+          renderCardGrid(data.data, resultsDiv, 'search');
+        } else {
+          resultsDiv.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🔎</div>
+              <h3>No Cards Found</h3>
+              <p>Try a different search term</p>
+            </div>
+          `;
+        }
+      } catch (e) {
+        resultsDiv.innerHTML = '<div class="empty-state"><h3>Error searching cards</h3></div>';
+      }
+    }
+    
+    // Render card grid
+    function renderCardGrid(cards, container, context = 'search') {
+      const collectionIds = new Set(myCollection.map(c => c.card_id));
+      const wantListIds = new Set(myWantList.map(c => c.card_id));
+      
+      container.innerHTML = `<div class="card-grid">${cards.map(card => {
+        const inCollection = collectionIds.has(card.id || card.card_id);
+        const onWantList = wantListIds.has(card.id || card.card_id);
+        const imageUrl = card.images?.small || card.card_image || '';
+        const price = card.tcgplayer?.prices?.holofoil?.market || 
+                     card.tcgplayer?.prices?.normal?.market ||
+                     card.tcgplayer?.prices?.reverseHolofoil?.market ||
+                     card.market_price || null;
+        const quantity = card.quantity || 0;
+        
+        return `
+          <div class="card-item" onclick="openCardModal('${card.id || card.card_id}', ${context === 'collection' || context === 'want-list' ? 'true' : 'false'})">
+            ${quantity > 1 ? `<div class="card-quantity">×${quantity}</div>` : ''}
+            <img src="${imageUrl}" alt="${card.name || card.card_name}" loading="lazy">
+            <div class="card-info">
+              <div class="card-name">${card.name || card.card_name}</div>
+              <div class="card-set">${card.set?.name || card.set_name || ''}</div>
+              ${price ? `<div class="card-price">$${price.toFixed(2)}</div>` : ''}
+              ${context === 'collection' ? `
+                <div class="card-actions">
+                  <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); removeFromCollection(${card.id})">Remove</button>
+                </div>
+              ` : context === 'want-list' ? `
+                <div class="card-actions">
+                  <button class="btn btn-success btn-small" onclick="event.stopPropagation(); markAcquired(${card.id})">Got It!</button>
+                  <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); removeFromWantList(${card.id})">Remove</button>
+                </div>
+              ` : `
+                <div class="card-actions">
+                  ${!inCollection ? `<button class="btn btn-success btn-small" onclick="event.stopPropagation(); quickAdd('${card.id}')">+ Add</button>` : '<span style="font-size:0.75rem;color:var(--success)">✓ Owned</span>'}
+                  ${!onWantList && !inCollection ? `<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); quickWant('${card.id}')">Want</button>` : ''}
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('')}</div>`;
+    }
+    
+    // Modal
+    async function openCardModal(cardId, isLocal = false) {
+      try {
+        let card;
+        
+        if (isLocal) {
+          // Find in local data first
+          card = myCollection.find(c => c.card_id === cardId || c.id == cardId) ||
+                 myWantList.find(c => c.card_id === cardId || c.id == cardId);
+          if (card) {
+            // Fetch full details from API
+            const res = await fetch(`/api/cards/${card.card_id}`);
+            const data = await res.json();
+            if (data.data) card = { ...data.data, ...card };
+          }
+        } else {
+          const res = await fetch(`/api/cards/${cardId}`);
+          const data = await res.json();
+          card = data.data;
+        }
+        
+        if (!card) return;
+        
+        currentCard = card;
+        
+        document.getElementById('modalCardName').textContent = card.name || card.card_name;
+        document.getElementById('modalCardImage').src = card.images?.large || card.images?.small || card.card_image || '';
+        document.getElementById('modalCardSet').textContent = card.set?.name || card.set_name || '-';
+        document.getElementById('modalCardNumber').textContent = card.number || '-';
+        document.getElementById('modalCardRarity').textContent = card.rarity || '-';
+        document.getElementById('modalCardArtist').textContent = card.artist || '-';
+        
+        const price = card.tcgplayer?.prices?.holofoil?.market || 
+                     card.tcgplayer?.prices?.normal?.market ||
+                     card.tcgplayer?.prices?.reverseHolofoil?.market ||
+                     card.market_price || null;
+        document.getElementById('modalCardPrice').textContent = price ? `$${price.toFixed(2)}` : '-';
+        
+        // TCGPlayer link
+        if (card.tcgplayer?.url) {
+          document.getElementById('tcgplayerLink').href = card.tcgplayer.url;
+          document.getElementById('tcgplayerLink').style.display = 'inline-flex';
+        } else {
+          document.getElementById('tcgplayerLink').style.display = 'none';
+        }
+        
+        // Update buttons based on status
+        const inCollection = myCollection.some(c => c.card_id === (card.id || card.card_id));
+        const onWantList = myWantList.some(c => c.card_id === (card.id || card.card_id));
+        
+        document.getElementById('modalAddCollection').style.display = inCollection ? 'none' : 'inline-flex';
+        document.getElementById('modalAddWantList').style.display = (onWantList || inCollection) ? 'none' : 'inline-flex';
+        
+        document.getElementById('cardModal').classList.add('active');
+      } catch (e) {
+        showToast('Error loading card details', 'error');
+      }
+    }
+    
+    function closeModal() {
+      document.getElementById('cardModal').classList.remove('active');
+      currentCard = null;
+    }
+    
+    // Collection
+    async function loadCollection() {
+      try {
+        const res = await fetch('/api/collection');
+        myCollection = await res.json();
+        renderCollection();
+      } catch (e) {}
+    }
+    
+    function renderCollection() {
+      const container = document.getElementById('collectionResults');
+      
+      if (myCollection.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📦</div>
+            <h3>Your Collection is Empty</h3>
+            <p>Search for cards and add them to your collection!</p>
+          </div>
+        `;
+        document.getElementById('collectionTotal').textContent = '';
+        return;
+      }
+      
+      const totalValue = myCollection.reduce((sum, c) => sum + (c.quantity * (c.market_price || 0)), 0);
+      document.getElementById('collectionTotal').textContent = `Total Value: $${totalValue.toFixed(2)}`;
+      
+      renderCardGrid(myCollection, container, 'collection');
+    }
+    
+    async function addToCollection() {
+      if (!currentCard) return;
+      
+      const price = currentCard.tcgplayer?.prices?.holofoil?.market || 
+                   currentCard.tcgplayer?.prices?.normal?.market ||
+                   currentCard.tcgplayer?.prices?.reverseHolofoil?.market || null;
+      
+      try {
+        const res = await fetch('/api/collection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: currentCard.id,
+            cardName: currentCard.name,
+            cardImage: currentCard.images?.small,
+            setId: currentCard.set?.id,
+            setName: currentCard.set?.name,
+            rarity: currentCard.rarity,
+            marketPrice: price
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(`Added ${currentCard.name} to collection!`, 'success');
+          loadCollection();
+          checkAuth(); // Refresh stats
+          closeModal();
+        } else {
+          showToast(data.error || 'Failed to add card', 'error');
+        }
+      } catch (e) {
+        showToast('Error adding card', 'error');
+      }
+    }
+    
+    async function quickAdd(cardId) {
+      try {
+        const res = await fetch(`/api/cards/${cardId}`);
+        const data = await res.json();
+        const card = data.data;
+        
+        const price = card.tcgplayer?.prices?.holofoil?.market || 
+                     card.tcgplayer?.prices?.normal?.market ||
+                     card.tcgplayer?.prices?.reverseHolofoil?.market || null;
+        
+        const addRes = await fetch('/api/collection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: card.id,
+            cardName: card.name,
+            cardImage: card.images?.small,
+            setId: card.set?.id,
+            setName: card.set?.name,
+            rarity: card.rarity,
+            marketPrice: price
+          })
+        });
+        
+        const result = await addRes.json();
+        
+        if (result.success) {
+          showToast(`Added ${card.name}!`, 'success');
+          loadCollection();
+          checkAuth();
+        }
+      } catch (e) {
+        showToast('Error adding card', 'error');
+      }
+    }
+    
+    async function removeFromCollection(id) {
+      try {
+        await fetch(`/api/collection/${id}`, { method: 'DELETE' });
+        showToast('Card removed', 'success');
+        loadCollection();
+        checkAuth();
+      } catch (e) {
+        showToast('Error removing card', 'error');
+      }
+    }
+    
+    // Want List
+    async function loadWantList() {
+      try {
+        const res = await fetch('/api/want-list');
+        myWantList = await res.json();
+        renderWantList();
+      } catch (e) {}
+    }
+    
+    function renderWantList() {
+      const container = document.getElementById('wantListResults');
+      
+      if (myWantList.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">💫</div>
+            <h3>Your Want List is Empty</h3>
+            <p>Add cards you're looking for to track them!</p>
+          </div>
+        `;
+        return;
+      }
+      
+      renderCardGrid(myWantList, container, 'want-list');
+    }
+    
+    async function addToWantList() {
+      if (!currentCard) return;
+      
+      try {
+        const res = await fetch('/api/want-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: currentCard.id,
+            cardName: currentCard.name,
+            cardImage: currentCard.images?.small,
+            setId: currentCard.set?.id,
+            setName: currentCard.set?.name,
+            rarity: currentCard.rarity
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(`Added ${currentCard.name} to want list!`, 'success');
+          loadWantList();
+          checkAuth();
+          closeModal();
+        } else {
+          showToast(data.error || 'Failed to add card', 'error');
+        }
+      } catch (e) {
+        showToast('Error adding card', 'error');
+      }
+    }
+    
+    async function quickWant(cardId) {
+      try {
+        const res = await fetch(`/api/cards/${cardId}`);
+        const data = await res.json();
+        const card = data.data;
+        
+        const addRes = await fetch('/api/want-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: card.id,
+            cardName: card.name,
+            cardImage: card.images?.small,
+            setId: card.set?.id,
+            setName: card.set?.name,
+            rarity: card.rarity
+          })
+        });
+        
+        const result = await addRes.json();
+        
+        if (result.success) {
+          showToast(`Added ${card.name} to want list!`, 'success');
+          loadWantList();
+          checkAuth();
+        }
+      } catch (e) {
+        showToast('Error adding card', 'error');
+      }
+    }
+    
+    async function removeFromWantList(id) {
+      try {
+        await fetch(`/api/want-list/${id}`, { method: 'DELETE' });
+        showToast('Card removed', 'success');
+        loadWantList();
+        checkAuth();
+      } catch (e) {
+        showToast('Error removing card', 'error');
+      }
+    }
+    
+    async function markAcquired(id) {
+      try {
+        await fetch(`/api/want-list/${id}/acquired`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ condition: 'Near Mint' })
+        });
+        showToast('Card moved to collection!', 'success');
+        loadWantList();
+        loadCollection();
+        checkAuth();
+      } catch (e) {
+        showToast('Error moving card', 'error');
+      }
+    }
+    
+    // Sets
+    async function loadSets() {
+      try {
+        const res = await fetch('/api/sets');
+        const data = await res.json();
+        allSets = data.data || [];
+        renderSets(allSets);
+      } catch (e) {
+        document.getElementById('setsResults').innerHTML = '<div class="empty-state"><h3>Error loading sets</h3></div>';
+      }
+    }
+    
+    function filterSets() {
+      const query = document.getElementById('setSearchInput').value.toLowerCase();
+      const filtered = allSets.filter(s => s.name.toLowerCase().includes(query));
+      renderSets(filtered);
+    }
+    
+    async function renderSets(sets) {
+      const container = document.getElementById('setsResults');
+      
+      // Get collection by set for completion tracking
+      let collectionBySet = {};
+      try {
+        const res = await fetch('/api/collection/by-set');
+        const data = await res.json();
+        data.forEach(s => collectionBySet[s.set_id] = s);
+      } catch (e) {}
+      
+      container.innerHTML = `<div class="set-grid">${sets.map(set => {
+        const owned = collectionBySet[set.id]?.unique_cards || 0;
+        const total = set.total || set.printedTotal || 100;
+        const pct = Math.round((owned / total) * 100);
+        
+        return `
+          <div class="set-item" onclick="openSetDetail('${set.id}')">
+            <img src="${set.images?.logo || set.images?.symbol}" alt="${set.name}">
+            <div class="set-info">
+              <div class="set-name">${set.name}</div>
+              <div class="set-meta">${set.releaseDate || ''} • ${total} cards</div>
+            </div>
+            <div class="set-progress">
+              <div style="font-size: 0.9rem;">${owned}/${total}</div>
+              <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: ${pct}%;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}</div>`;
+    }
+    
+    async function openSetDetail(setId) {
+      showPage('setDetail');
+      
+      const container = document.getElementById('setDetailResults');
+      container.innerHTML = '<div class="loading">Loading cards</div>';
+      
+      try {
+        // Get set info
+        const setRes = await fetch(`/api/sets/${setId}`);
+        const setData = await setRes.json();
+        const set = setData.data;
+        
+        document.getElementById('setDetailTitle').textContent = set.name;
+        
+        // Get cards in set
+        const cardsRes = await fetch(`/api/sets/${setId}/cards?pageSize=250`);
+        const cardsData = await cardsRes.json();
+        
+        // Get completion
+        const collectionIds = new Set(myCollection.filter(c => c.set_id === setId).map(c => c.card_id));
+        const owned = collectionIds.size;
+        const total = cardsData.data?.length || 0;
+        
+        document.getElementById('setCompletionText').textContent = `You own ${owned} of ${total} cards (${Math.round((owned/total)*100)}% complete)`;
+        
+        if (cardsData.data && cardsData.data.length > 0) {
+          renderCardGrid(cardsData.data, container, 'search');
+        } else {
+          container.innerHTML = '<div class="empty-state"><h3>No cards found</h3></div>';
+        }
+      } catch (e) {
+        container.innerHTML = '<div class="empty-state"><h3>Error loading set</h3></div>';
+      }
+    }
+    
+    // Toast
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toastMessage');
+      
+      toastMessage.textContent = message;
+      toast.className = `toast ${type}`;
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
