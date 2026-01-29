@@ -807,6 +807,227 @@
     .rarity-holo { color: #9b59b6; }
     .rarity-ultra { color: #e74c3c; }
     .rarity-secret { color: #f1c40f; }
+
+    /* Trade styles */
+    .trade-tab { }
+    
+    .match-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: all 0.2s;
+    }
+    
+    .match-card:hover {
+      border-color: var(--primary);
+    }
+    
+    .match-card.bidirectional {
+      border-left: 4px solid var(--success);
+    }
+    
+    .match-card.they_have {
+      border-left: 4px solid var(--secondary);
+    }
+    
+    .match-card.they_want {
+      border-left: 4px solid var(--warning);
+    }
+    
+    .match-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .match-user {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .match-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    
+    .match-type {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    
+    .match-type.bidirectional {
+      background: rgba(39, 174, 96, 0.2);
+      color: var(--success);
+    }
+    
+    .match-type.they_have {
+      background: rgba(52, 152, 219, 0.2);
+      color: var(--secondary);
+    }
+    
+    .match-type.they_want {
+      background: rgba(243, 156, 18, 0.2);
+      color: var(--warning);
+    }
+    
+    .match-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .match-cards-section h5 {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    
+    .match-card-list {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .match-card-mini {
+      width: 60px;
+      height: 84px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+    }
+    
+    .match-card-mini img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .match-card-mini .card-value {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.8);
+      font-size: 0.65rem;
+      text-align: center;
+      padding: 2px;
+    }
+    
+    .match-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    
+    .match-values {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .fairness-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .fairness-great { background: var(--success); color: white; }
+    .fairness-good { background: var(--warning); color: black; }
+    .fairness-poor { background: var(--danger); color: white; }
+    
+    .trade-card-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .trade-card-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem;
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .trade-card-item img {
+      width: 40px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    
+    .trade-card-item .card-details {
+      flex: 1;
+    }
+    
+    .trade-card-item .card-name {
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    
+    .trade-card-item .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    
+    .trade-card-item .card-price {
+      font-weight: bold;
+      color: var(--success);
+    }
+    
+    .trade-card-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+    
+    .trade-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .trade-item:hover {
+      border-color: var(--primary);
+    }
+    
+    .trade-item.status-pending { border-left: 4px solid var(--warning); }
+    .trade-item.status-completed { border-left: 4px solid var(--success); }
+    .trade-item.status-rejected { border-left: 4px solid var(--danger); }
+    .trade-item.status-cancelled { border-left: 4px solid var(--text-muted); }
+    
+    .trade-status {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    
+    .trade-status.pending { background: var(--warning); color: black; }
+    .trade-status.completed { background: var(--success); color: white; }
+    .trade-status.rejected { background: var(--danger); color: white; }
+    .trade-status.cancelled { background: var(--text-muted); color: black; }
   </style>
 </head>
 <body>
@@ -821,6 +1042,7 @@
       <button data-page="search">🔍 Search</button>
       <button data-page="collection">📦 Collection</button>
       <button data-page="want-list">💫 Want List</button>
+      <button data-page="trades">🔄 Trades</button>
       <button data-page="sets">📚 Sets</button>
     </nav>
     
@@ -987,6 +1209,64 @@
       </div>
     </div>
     
+    <!-- Trades Page -->
+    <div class="page" id="tradesPage">
+      <div class="page-header">
+        <h1>🔄 Trade Center</h1>
+        <div id="tradeStats" class="stats-bar" style="display: flex; gap: 1.5rem;">
+          <div class="stat"><span>Completed:</span> <span class="stat-value" id="tradeStatsCompleted">0</span></div>
+          <div class="stat"><span>Pending:</span> <span class="stat-value" id="tradeStatsPending">0</span></div>
+        </div>
+      </div>
+      
+      <div class="tabs" id="tradeTabs">
+        <button class="active" onclick="switchTradeTab('matches')">🎯 Find Matches</button>
+        <button onclick="switchTradeTab('sent')">📤 Sent (<span id="tradeSentCount">0</span>)</button>
+        <button onclick="switchTradeTab('received')">📥 Received (<span id="tradeReceivedCount">0</span>)</button>
+        <button onclick="switchTradeTab('history')">📜 History</button>
+      </div>
+      
+      <!-- Find Matches Tab -->
+      <div id="tradeMatchesTab" class="trade-tab">
+        <div class="trade-info-box" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <h3 style="margin-bottom: 0.5rem;">🤝 How Trade Matching Works</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            We find users who have cards you want AND want cards you have (duplicates). 
+            <strong style="color: var(--success);">Bidirectional matches</strong> are best - both parties get something they want!
+          </p>
+          <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem;">
+            <div><span style="color: var(--text-muted);">Your Want List:</span> <strong id="matchWantCount">0</strong> cards</div>
+            <div><span style="color: var(--text-muted);">Your Trade Bait:</span> <strong id="matchTradeableCount">0</strong> duplicates</div>
+          </div>
+        </div>
+        
+        <div id="matchResults">
+          <div class="loading">Finding matches</div>
+        </div>
+      </div>
+      
+      <!-- Sent Trades Tab -->
+      <div id="tradeSentTab" class="trade-tab" style="display: none;">
+        <div id="sentTradesResults">
+          <div class="loading">Loading sent trades</div>
+        </div>
+      </div>
+      
+      <!-- Received Trades Tab -->
+      <div id="tradeReceivedTab" class="trade-tab" style="display: none;">
+        <div id="receivedTradesResults">
+          <div class="loading">Loading received trades</div>
+        </div>
+      </div>
+      
+      <!-- History Tab -->
+      <div id="tradeHistoryTab" class="trade-tab" style="display: none;">
+        <div id="historyTradesResults">
+          <div class="loading">Loading trade history</div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Sets Page -->
     <div class="page" id="setsPage">
       <div class="page-header">
@@ -1145,6 +1425,74 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Trade Proposal Modal -->
+  <div class="modal-overlay" id="tradeModal">
+    <div class="modal" style="max-width: 900px;">
+      <div class="modal-header">
+        <h3>📝 Propose Trade with <span id="tradeModalPartnerName"></span></h3>
+        <button class="modal-close" onclick="closeTradeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="two-col" style="gap: 1.5rem;">
+          <!-- What I'm offering -->
+          <div>
+            <h4 style="margin-bottom: 1rem; color: var(--warning);">🎁 You're Offering</h4>
+            <div id="tradeOfferCards" class="trade-card-list"></div>
+            <div style="margin-top: 1rem; font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Total Value:</span>
+              <strong id="tradeOfferValue" style="color: var(--warning);">$0.00</strong>
+            </div>
+          </div>
+          
+          <!-- What I'm requesting -->
+          <div>
+            <h4 style="margin-bottom: 1rem; color: var(--success);">🎯 You're Requesting</h4>
+            <div id="tradeRequestCards" class="trade-card-list"></div>
+            <div style="margin-top: 1rem; font-size: 0.9rem;">
+              <span style="color: var(--text-muted);">Total Value:</span>
+              <strong id="tradeRequestValue" style="color: var(--success);">$0.00</strong>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Fairness indicator -->
+        <div id="tradeFairnessBar" style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-input); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Trade Fairness</span>
+            <span id="tradeFairnessPercent" style="font-weight: bold;">100%</span>
+          </div>
+          <div class="progress-bar" style="width: 100%;">
+            <div id="tradeFairnessFill" class="progress-bar-fill" style="width: 100%; background: var(--success);"></div>
+          </div>
+        </div>
+        
+        <!-- Message -->
+        <div class="form-group" style="margin-top: 1rem;">
+          <label>Message (optional)</label>
+          <textarea id="tradeMessage" placeholder="Add a note to your trade proposal..." style="resize: vertical; min-height: 60px;"></textarea>
+        </div>
+        
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+          <button class="btn btn-secondary" onclick="closeTradeModal()">Cancel</button>
+          <button class="btn btn-primary" id="submitTradeBtn" onclick="submitTrade()">📤 Send Trade Proposal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View Trade Modal -->
+  <div class="modal-overlay" id="viewTradeModal">
+    <div class="modal" style="max-width: 900px;">
+      <div class="modal-header">
+        <h3 id="viewTradeTitle">Trade Details</h3>
+        <button class="modal-close" onclick="closeViewTradeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="viewTradeContent"></div>
       </div>
     </div>
   </div>
@@ -2160,6 +2508,507 @@
         toast.classList.remove('show');
       }, 3000);
     }
+    
+    // ============ TRADE MATCHING ============
+    
+    let currentTradePartner = null;
+    let currentTradeOffer = [];
+    let currentTradeRequest = [];
+    let currentMatches = [];
+    
+    function switchTradeTab(tab) {
+      document.querySelectorAll('#tradeTabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(tab) || 
+          (tab === 'matches' && btn.textContent.includes('Find')));
+      });
+      
+      document.querySelectorAll('.trade-tab').forEach(t => t.style.display = 'none');
+      
+      if (tab === 'matches') {
+        document.getElementById('tradeMatchesTab').style.display = 'block';
+        loadMatches();
+      } else if (tab === 'sent') {
+        document.getElementById('tradeSentTab').style.display = 'block';
+        loadTrades('sent');
+      } else if (tab === 'received') {
+        document.getElementById('tradeReceivedTab').style.display = 'block';
+        loadTrades('received');
+      } else if (tab === 'history') {
+        document.getElementById('tradeHistoryTab').style.display = 'block';
+        loadTrades('history');
+      }
+    }
+    
+    async function loadMatches() {
+      const container = document.getElementById('matchResults');
+      container.innerHTML = '<div class="loading">Finding trade matches</div>';
+      
+      try {
+        const res = await fetch('/api/matches');
+        const data = await res.json();
+        
+        currentMatches = data.matches || [];
+        
+        document.getElementById('matchWantCount').textContent = data.myWantCount || 0;
+        document.getElementById('matchTradeableCount').textContent = data.myTradeableCount || 0;
+        
+        if (currentMatches.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🔍</div>
+              <h3>No Matches Found</h3>
+              <p>To find trade partners:</p>
+              <ul style="text-align: left; max-width: 400px; margin: 1rem auto; color: var(--text-muted);">
+                <li>Add cards to your <strong>Want List</strong></li>
+                <li>Have <strong>duplicate cards</strong> in your collection (quantity > 1)</li>
+                <li>Wait for other collectors to sign up!</li>
+              </ul>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = currentMatches.map(match => renderMatchCard(match)).join('');
+        
+      } catch (e) {
+        container.innerHTML = '<div class="empty-state"><h3>Error loading matches</h3></div>';
+      }
+    }
+    
+    function renderMatchCard(match) {
+      const matchTypeLabel = {
+        'bidirectional': '🤝 Perfect Match',
+        'they_have': '📦 They Have',
+        'they_want': '💫 They Want'
+      }[match.matchType] || match.matchType;
+      
+      const fairnessClass = match.fairness >= 80 ? 'great' : match.fairness >= 50 ? 'good' : 'poor';
+      
+      return `
+        <div class="match-card ${match.matchType}">
+          <div class="match-header">
+            <div class="match-user">
+              <div class="match-avatar">${match.userName[0].toUpperCase()}</div>
+              <div>
+                <div style="font-weight: 600;">${match.userName}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Score: ${Math.round(match.score)}</div>
+              </div>
+            </div>
+            <span class="match-type ${match.matchType}">${matchTypeLabel}</span>
+          </div>
+          
+          <div class="match-cards">
+            ${match.theyHave.length > 0 ? `
+              <div class="match-cards-section">
+                <h5>🎁 They can give you:</h5>
+                <div class="match-card-list">
+                  ${match.theyHave.slice(0, 5).map(card => `
+                    <div class="match-card-mini" title="${card.card_name}">
+                      <img src="${card.card_image || ''}" alt="${card.card_name}">
+                      ${card.max_price ? `<div class="card-value">$${card.max_price.toFixed(0)}</div>` : ''}
+                    </div>
+                  `).join('')}
+                  ${match.theyHave.length > 5 ? `<div class="match-card-mini" style="display: flex; align-items: center; justify-content: center; background: var(--bg-input);">+${match.theyHave.length - 5}</div>` : ''}
+                </div>
+              </div>
+            ` : '<div class="match-cards-section"><h5>🎁 They can give you:</h5><p style="color: var(--text-muted); font-size: 0.85rem;">Browse their collection</p></div>'}
+            
+            ${match.theyWant.length > 0 ? `
+              <div class="match-cards-section">
+                <h5>💫 They want from you:</h5>
+                <div class="match-card-list">
+                  ${match.theyWant.slice(0, 5).map(card => `
+                    <div class="match-card-mini" title="${card.card_name}">
+                      <img src="${card.card_image || ''}" alt="${card.card_name}">
+                      ${card.market_price ? `<div class="card-value">$${card.market_price.toFixed(0)}</div>` : ''}
+                    </div>
+                  `).join('')}
+                  ${match.theyWant.length > 5 ? `<div class="match-card-mini" style="display: flex; align-items: center; justify-content: center; background: var(--bg-input);">+${match.theyWant.length - 5}</div>` : ''}
+                </div>
+              </div>
+            ` : '<div class="match-cards-section"><h5>💫 They want from you:</h5><p style="color: var(--text-muted); font-size: 0.85rem;">No specific cards</p></div>'}
+          </div>
+          
+          <div class="match-footer">
+            <div class="match-values">
+              <div>
+                <span style="color: var(--text-muted);">They offer:</span>
+                <strong style="color: var(--success);">$${match.theyOfferValue.toFixed(2)}</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">You offer:</span>
+                <strong style="color: var(--warning);">$${match.iOfferValue.toFixed(2)}</strong>
+              </div>
+              ${match.fairness !== null ? `
+                <span class="fairness-badge fairness-${fairnessClass}">${match.fairness}% fair</span>
+              ` : ''}
+            </div>
+            <button class="btn btn-primary" onclick="openTradeProposal(${match.userId}, '${match.userName}')">
+              📝 Propose Trade
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function openTradeProposal(userId, userName) {
+      currentTradePartner = { userId, userName };
+      currentTradeOffer = [];
+      currentTradeRequest = [];
+      
+      document.getElementById('tradeModalPartnerName').textContent = userName;
+      
+      try {
+        const res = await fetch(`/api/matches/${userId}/suggest`);
+        const data = await res.json();
+        
+        // Render cards I can offer (they want these)
+        const offerContainer = document.getElementById('tradeOfferCards');
+        if (data.canOffer && data.canOffer.length > 0) {
+          offerContainer.innerHTML = data.canOffer.map(card => `
+            <div class="trade-card-item">
+              <input type="checkbox" id="offer-${card.card_id}" onchange="toggleTradeCard('offer', '${card.card_id}', this.checked)">
+              <img src="${card.card_image || ''}" alt="${card.card_name}">
+              <div class="card-details">
+                <div class="card-name">${card.card_name}</div>
+                <div class="card-meta">${card.set_name || ''} • ${card.tradeable} available</div>
+              </div>
+              <div class="card-price">$${(card.market_price || 0).toFixed(2)}</div>
+            </div>
+          `).join('');
+        } else {
+          offerContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No tradeable cards they want</p>';
+        }
+        
+        // Render cards I can request (I want these, they have)
+        const requestContainer = document.getElementById('tradeRequestCards');
+        if (data.canRequest && data.canRequest.length > 0) {
+          requestContainer.innerHTML = data.canRequest.map(card => `
+            <div class="trade-card-item">
+              <input type="checkbox" id="request-${card.card_id}" onchange="toggleTradeCard('request', '${card.card_id}', this.checked)">
+              <img src="${card.card_image || ''}" alt="${card.card_name}">
+              <div class="card-details">
+                <div class="card-name">${card.card_name}</div>
+                <div class="card-meta">${card.set_name || ''}</div>
+              </div>
+              <div class="card-price">$${(card.market_price || 0).toFixed(2)}</div>
+            </div>
+          `).join('');
+        } else {
+          requestContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No cards you want that they have</p>';
+        }
+        
+        // Store card data for trade submission
+        window.tradeableCards = {
+          canOffer: data.canOffer || [],
+          canRequest: data.canRequest || []
+        };
+        
+        updateTradeFairness();
+        document.getElementById('tradeModal').classList.add('active');
+        
+      } catch (e) {
+        showToast('Error loading trade options', 'error');
+      }
+    }
+    
+    function toggleTradeCard(type, cardId, checked) {
+      const cards = type === 'offer' ? window.tradeableCards.canOffer : window.tradeableCards.canRequest;
+      const card = cards.find(c => c.card_id === cardId);
+      
+      if (!card) return;
+      
+      const list = type === 'offer' ? currentTradeOffer : currentTradeRequest;
+      
+      if (checked) {
+        list.push({
+          cardId: card.card_id,
+          cardName: card.card_name,
+          cardImage: card.card_image,
+          setName: card.set_name,
+          rarity: card.rarity,
+          marketPrice: card.market_price,
+          quantity: 1
+        });
+      } else {
+        const idx = list.findIndex(c => c.cardId === cardId);
+        if (idx > -1) list.splice(idx, 1);
+      }
+      
+      updateTradeFairness();
+    }
+    
+    function updateTradeFairness() {
+      const offerValue = currentTradeOffer.reduce((s, c) => s + (c.marketPrice || 0), 0);
+      const requestValue = currentTradeRequest.reduce((s, c) => s + (c.marketPrice || 0), 0);
+      
+      document.getElementById('tradeOfferValue').textContent = '$' + offerValue.toFixed(2);
+      document.getElementById('tradeRequestValue').textContent = '$' + requestValue.toFixed(2);
+      
+      let fairness = 100;
+      if (offerValue > 0 || requestValue > 0) {
+        const max = Math.max(offerValue, requestValue);
+        const min = Math.min(offerValue, requestValue);
+        fairness = max > 0 ? Math.round((min / max) * 100) : 100;
+      }
+      
+      document.getElementById('tradeFairnessPercent').textContent = fairness + '%';
+      document.getElementById('tradeFairnessFill').style.width = fairness + '%';
+      document.getElementById('tradeFairnessFill').style.background = 
+        fairness >= 80 ? 'var(--success)' : fairness >= 50 ? 'var(--warning)' : 'var(--danger)';
+    }
+    
+    function closeTradeModal() {
+      document.getElementById('tradeModal').classList.remove('active');
+      currentTradePartner = null;
+      currentTradeOffer = [];
+      currentTradeRequest = [];
+    }
+    
+    async function submitTrade() {
+      if (currentTradeOffer.length === 0 && currentTradeRequest.length === 0) {
+        showToast('Select at least one card to trade', 'error');
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/trades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientId: currentTradePartner.userId,
+            offeredCards: currentTradeOffer,
+            requestedCards: currentTradeRequest,
+            message: document.getElementById('tradeMessage').value
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast('Trade proposal sent!', 'success');
+          closeTradeModal();
+          switchTradeTab('sent');
+        } else {
+          showToast(data.error || 'Failed to send trade', 'error');
+        }
+      } catch (e) {
+        showToast('Error sending trade', 'error');
+      }
+    }
+    
+    async function loadTrades(type) {
+      let containerId, statusFilter;
+      
+      if (type === 'sent') {
+        containerId = 'sentTradesResults';
+        statusFilter = 'pending';
+      } else if (type === 'received') {
+        containerId = 'receivedTradesResults';
+        statusFilter = 'pending';
+      } else {
+        containerId = 'historyTradesResults';
+        statusFilter = 'all';
+      }
+      
+      const container = document.getElementById(containerId);
+      container.innerHTML = '<div class="loading">Loading trades</div>';
+      
+      try {
+        const res = await fetch(`/api/trades?status=${statusFilter}`);
+        let trades = await res.json();
+        
+        // Filter by direction
+        if (type === 'sent') {
+          trades = trades.filter(t => t.direction === 'sent' && t.status === 'pending');
+          document.getElementById('tradeSentCount').textContent = trades.length;
+        } else if (type === 'received') {
+          trades = trades.filter(t => t.direction === 'received' && t.status === 'pending');
+          document.getElementById('tradeReceivedCount').textContent = trades.length;
+        } else {
+          trades = trades.filter(t => t.status !== 'pending');
+        }
+        
+        if (trades.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">${type === 'sent' ? '📤' : type === 'received' ? '📥' : '📜'}</div>
+              <h3>No ${type} trades</h3>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = trades.map(trade => renderTradeItem(trade, type)).join('');
+        
+      } catch (e) {
+        container.innerHTML = '<div class="empty-state"><h3>Error loading trades</h3></div>';
+      }
+    }
+    
+    function renderTradeItem(trade, context) {
+      const isReceived = trade.direction === 'received';
+      const partnerName = isReceived ? trade.proposer_name : trade.recipient_name;
+      
+      return `
+        <div class="trade-item status-${trade.status}" onclick="viewTrade(${trade.id})">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div>
+              <strong>${isReceived ? 'From' : 'To'}: ${partnerName}</strong>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">${new Date(trade.created_at).toLocaleDateString()}</div>
+            </div>
+            <span class="trade-status ${trade.status}">${trade.status}</span>
+          </div>
+          
+          <div style="display: flex; gap: 1rem; font-size: 0.9rem;">
+            <div>
+              <span style="color: var(--text-muted);">Offering:</span>
+              <strong>${trade.offeredCards.length} cards ($${trade.proposer_value.toFixed(2)})</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted);">Requesting:</span>
+              <strong>${trade.requestedCards.length} cards ($${trade.recipient_value.toFixed(2)})</strong>
+            </div>
+          </div>
+          
+          ${context === 'received' && trade.status === 'pending' ? `
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+              <button class="btn btn-success btn-small" onclick="event.stopPropagation(); handleTrade(${trade.id}, 'accept')">✓ Accept</button>
+              <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); handleTrade(${trade.id}, 'reject')">✕ Reject</button>
+            </div>
+          ` : context === 'sent' && trade.status === 'pending' ? `
+            <div style="margin-top: 1rem;">
+              <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); handleTrade(${trade.id}, 'cancel')">Cancel Trade</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+    async function viewTrade(tradeId) {
+      try {
+        const res = await fetch(`/api/trades/${tradeId}`);
+        const trade = await res.json();
+        
+        const isReceived = trade.direction === 'received';
+        const partnerName = isReceived ? trade.proposer_name : trade.recipient_name;
+        
+        document.getElementById('viewTradeTitle').textContent = `Trade with ${partnerName}`;
+        
+        document.getElementById('viewTradeContent').innerHTML = `
+          <div style="margin-bottom: 1rem;">
+            <span class="trade-status ${trade.status}" style="margin-right: 1rem;">${trade.status}</span>
+            <span style="color: var(--text-muted);">${new Date(trade.created_at).toLocaleString()}</span>
+          </div>
+          
+          ${trade.message ? `<div style="background: var(--bg-input); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;"><strong>Message:</strong> ${trade.message}</div>` : ''}
+          
+          <div class="two-col" style="gap: 1.5rem;">
+            <div>
+              <h4 style="margin-bottom: 1rem; color: var(--warning);">🎁 ${isReceived ? 'They Offer' : 'You Offer'}</h4>
+              ${trade.offeredCards.map(card => `
+                <div class="trade-card-item">
+                  <img src="${card.card_image || ''}" alt="${card.card_name}">
+                  <div class="card-details">
+                    <div class="card-name">${card.card_name}</div>
+                    <div class="card-meta">${card.set_name || ''} × ${card.quantity}</div>
+                  </div>
+                  <div class="card-price">$${(card.market_price || 0).toFixed(2)}</div>
+                </div>
+              `).join('') || '<p style="color: var(--text-muted);">No cards</p>'}
+              <div style="margin-top: 0.5rem; font-weight: bold;">Total: $${trade.proposer_value.toFixed(2)}</div>
+            </div>
+            
+            <div>
+              <h4 style="margin-bottom: 1rem; color: var(--success);">🎯 ${isReceived ? 'They Request' : 'You Request'}</h4>
+              ${trade.requestedCards.map(card => `
+                <div class="trade-card-item">
+                  <img src="${card.card_image || ''}" alt="${card.card_name}">
+                  <div class="card-details">
+                    <div class="card-name">${card.card_name}</div>
+                    <div class="card-meta">${card.set_name || ''} × ${card.quantity}</div>
+                  </div>
+                  <div class="card-price">$${(card.market_price || 0).toFixed(2)}</div>
+                </div>
+              `).join('') || '<p style="color: var(--text-muted);">No cards</p>'}
+              <div style="margin-top: 0.5rem; font-weight: bold;">Total: $${trade.recipient_value.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          ${trade.status === 'pending' ? `
+            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+              ${isReceived ? `
+                <button class="btn btn-success" onclick="handleTrade(${trade.id}, 'accept'); closeViewTradeModal();">✓ Accept Trade</button>
+                <button class="btn btn-danger" onclick="handleTrade(${trade.id}, 'reject'); closeViewTradeModal();">✕ Reject</button>
+              ` : `
+                <button class="btn btn-secondary" onclick="handleTrade(${trade.id}, 'cancel'); closeViewTradeModal();">Cancel Trade</button>
+              `}
+            </div>
+          ` : ''}
+        `;
+        
+        document.getElementById('viewTradeModal').classList.add('active');
+        
+      } catch (e) {
+        showToast('Error loading trade', 'error');
+      }
+    }
+    
+    function closeViewTradeModal() {
+      document.getElementById('viewTradeModal').classList.remove('active');
+    }
+    
+    async function handleTrade(tradeId, action) {
+      try {
+        const res = await fetch(`/api/trades/${tradeId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showToast(data.message, 'success');
+          
+          // Reload data
+          if (action === 'accept') {
+            loadCollection();
+            loadWantList();
+          }
+          
+          // Refresh trades
+          loadTrades('sent');
+          loadTrades('received');
+          loadTradeStats();
+        } else {
+          showToast(data.error || 'Failed to process trade', 'error');
+        }
+      } catch (e) {
+        showToast('Error processing trade', 'error');
+      }
+    }
+    
+    async function loadTradeStats() {
+      try {
+        const res = await fetch('/api/trades/stats');
+        const stats = await res.json();
+        
+        document.getElementById('tradeStatsCompleted').textContent = stats.completedTrades || 0;
+        document.getElementById('tradeStatsPending').textContent = 
+          (stats.pendingSent || 0) + (stats.pendingReceived || 0);
+      } catch (e) {}
+    }
+    
+    // Load trades when visiting trades page
+    const originalShowPage = showPage;
+    showPage = function(page) {
+      originalShowPage(page);
+      if (page === 'trades') {
+        switchTradeTab('matches');
+        loadTradeStats();
+      }
+    };
   </script>
 </body>
 </html>

@@ -885,6 +885,556 @@ app.post('/api/want-list/:id/acquired', requireAuth, (req, res) => {
   }
 });
 
+// ============ TRADE MATCHING SYSTEM ============
+
+// Find trade matches for the current user
+app.get('/api/matches', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    // Get user's want list
+    const myWants = db.prepare(`
+      SELECT card_id, card_name, card_image, set_name, rarity, max_price 
+      FROM want_list WHERE user_id = ?
+    `).all(userId);
+    
+    // Get user's collection (tradeable duplicates)
+    const myHaves = db.prepare(`
+      SELECT card_id, card_name, card_image, set_name, rarity, market_price,
+             (quantity - 1) as tradeable_qty
+      FROM collection 
+      WHERE user_id = ? AND quantity > 1
+    `).all(userId);
+    
+    if (myWants.length === 0 && myHaves.length === 0) {
+      return res.json({
+        matches: [],
+        message: 'Add cards to your want list or have duplicates to find trades'
+      });
+    }
+    
+    const myWantIds = new Set(myWants.map(c => c.card_id));
+    const myHaveIds = new Set(myHaves.map(c => c.card_id));
+    
+    // Find other users who have what I want
+    const usersWithMyWants = db.prepare(`
+      SELECT DISTINCT c.user_id, u.name, u.share_token,
+             GROUP_CONCAT(c.card_id) as has_cards
+      FROM collection c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.card_id IN (${myWants.map(() => '?').join(',')})
+        AND c.user_id != ?
+        AND c.quantity > 1
+      GROUP BY c.user_id
+    `).all(...myWants.map(w => w.card_id), userId);
+    
+    // Find other users who want what I have
+    const usersWantingMyHaves = db.prepare(`
+      SELECT DISTINCT w.user_id, u.name, u.share_token,
+             GROUP_CONCAT(w.card_id) as wants_cards
+      FROM want_list w
+      JOIN users u ON w.user_id = u.id
+      WHERE w.card_id IN (${myHaves.map(() => '?').join(',')})
+        AND w.user_id != ?
+      GROUP BY w.user_id
+    `).all(...myHaves.map(h => h.card_id), userId);
+    
+    // Build user maps
+    const userHasMap = new Map();
+    for (const u of usersWithMyWants) {
+      userHasMap.set(u.user_id, {
+        ...u,
+        hasCards: u.has_cards.split(',')
+      });
+    }
+    
+    const userWantsMap = new Map();
+    for (const u of usersWantingMyHaves) {
+      userWantsMap.set(u.user_id, {
+        ...u,
+        wantsCards: u.wants_cards.split(',')
+      });
+    }
+    
+    // Find bidirectional matches (best matches - they have what I want AND want what I have)
+    const matches = [];
+    const seenUsers = new Set();
+    
+    for (const [otherUserId, hasInfo] of userHasMap) {
+      const wantsInfo = userWantsMap.get(otherUserId);
+      
+      if (wantsInfo) {
+        // Bidirectional match!
+        const theyHave = hasInfo.hasCards.filter(id => myWantIds.has(id));
+        const theyWant = wantsInfo.wantsCards.filter(id => myHaveIds.has(id));
+        
+        // Get full card details
+        const theyHaveCards = myWants.filter(w => theyHave.includes(w.card_id));
+        const theyWantCards = myHaves.filter(h => theyWant.includes(h.card_id));
+        
+        // Calculate values
+        const theyOfferValue = theyHaveCards.reduce((sum, c) => sum + (c.max_price || 0), 0);
+        const iOfferValue = theyWantCards.reduce((sum, c) => sum + (c.market_price || 0), 0);
+        
+        // Score based on match quality
+        const matchScore = (theyHaveCards.length + theyWantCards.length) * 100 +
+                          Math.min(theyOfferValue, iOfferValue) -
+                          Math.abs(theyOfferValue - iOfferValue) * 0.5;
+        
+        matches.push({
+          userId: otherUserId,
+          userName: hasInfo.name,
+          shareToken: hasInfo.share_token,
+          matchType: 'bidirectional',
+          score: matchScore,
+          theyHave: theyHaveCards,
+          theyWant: theyWantCards,
+          theyOfferValue: Math.round(theyOfferValue * 100) / 100,
+          iOfferValue: Math.round(iOfferValue * 100) / 100,
+          fairness: calculateFairness(theyOfferValue, iOfferValue)
+        });
+        
+        seenUsers.add(otherUserId);
+      }
+    }
+    
+    // Add one-way matches (they have what I want but don't necessarily want what I have)
+    for (const [otherUserId, hasInfo] of userHasMap) {
+      if (seenUsers.has(otherUserId)) continue;
+      
+      const theyHave = hasInfo.hasCards.filter(id => myWantIds.has(id));
+      const theyHaveCards = myWants.filter(w => theyHave.includes(w.card_id));
+      const theyOfferValue = theyHaveCards.reduce((sum, c) => sum + (c.max_price || 0), 0);
+      
+      matches.push({
+        userId: otherUserId,
+        userName: hasInfo.name,
+        shareToken: hasInfo.share_token,
+        matchType: 'they_have',
+        score: theyHaveCards.length * 50 + theyOfferValue * 0.1,
+        theyHave: theyHaveCards,
+        theyWant: [],
+        theyOfferValue: Math.round(theyOfferValue * 100) / 100,
+        iOfferValue: 0,
+        fairness: null
+      });
+      
+      seenUsers.add(otherUserId);
+    }
+    
+    // Add one-way matches (they want what I have)
+    for (const [otherUserId, wantsInfo] of userWantsMap) {
+      if (seenUsers.has(otherUserId)) continue;
+      
+      const theyWant = wantsInfo.wantsCards.filter(id => myHaveIds.has(id));
+      const theyWantCards = myHaves.filter(h => theyWant.includes(h.card_id));
+      const iOfferValue = theyWantCards.reduce((sum, c) => sum + (c.market_price || 0), 0);
+      
+      matches.push({
+        userId: otherUserId,
+        userName: wantsInfo.name,
+        shareToken: wantsInfo.share_token,
+        matchType: 'they_want',
+        score: theyWantCards.length * 30 + iOfferValue * 0.05,
+        theyHave: [],
+        theyWant: theyWantCards,
+        theyOfferValue: 0,
+        iOfferValue: Math.round(iOfferValue * 100) / 100,
+        fairness: null
+      });
+    }
+    
+    // Sort by score (best matches first)
+    matches.sort((a, b) => b.score - a.score);
+    
+    // Cache match scores for future use
+    for (const match of matches.slice(0, 50)) {
+      db.prepare(`
+        INSERT OR REPLACE INTO match_scores (user1_id, user2_id, score, direct_matches, last_calculated)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(
+        userId, 
+        match.userId, 
+        match.score, 
+        match.theyHave.length + match.theyWant.length
+      );
+    }
+    
+    res.json({
+      matches: matches.slice(0, limit),
+      totalMatches: matches.length,
+      myWantCount: myWants.length,
+      myTradeableCount: myHaves.length
+    });
+  } catch (err) {
+    console.error('Match error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper: Calculate trade fairness (0-100)
+function calculateFairness(value1, value2) {
+  if (value1 === 0 && value2 === 0) return 100;
+  if (value1 === 0 || value2 === 0) return 0;
+  const ratio = Math.min(value1, value2) / Math.max(value1, value2);
+  return Math.round(ratio * 100);
+}
+
+// Propose a trade
+app.post('/api/trades', requireAuth, (req, res) => {
+  try {
+    const { recipientId, offeredCards, requestedCards, message } = req.body;
+    const proposerId = req.session.userId;
+    
+    if (proposerId === recipientId) {
+      return res.status(400).json({ error: 'Cannot trade with yourself' });
+    }
+    
+    if (!offeredCards?.length && !requestedCards?.length) {
+      return res.status(400).json({ error: 'Must offer or request at least one card' });
+    }
+    
+    // Validate I own the offered cards
+    for (const card of offeredCards || []) {
+      const owned = db.prepare(`
+        SELECT quantity FROM collection 
+        WHERE user_id = ? AND card_id = ?
+      `).get(proposerId, card.cardId);
+      
+      if (!owned || owned.quantity < (card.quantity || 1)) {
+        return res.status(400).json({ error: `You don't have enough of ${card.cardName}` });
+      }
+    }
+    
+    // Calculate values
+    const proposerValue = (offeredCards || []).reduce((sum, c) => sum + (c.marketPrice || 0) * (c.quantity || 1), 0);
+    const recipientValue = (requestedCards || []).reduce((sum, c) => sum + (c.marketPrice || 0) * (c.quantity || 1), 0);
+    
+    // Create trade
+    const result = db.prepare(`
+      INSERT INTO trades (proposer_id, recipient_id, status, message, proposer_value, recipient_value)
+      VALUES (?, ?, 'pending', ?, ?, ?)
+    `).run(proposerId, recipientId, message || null, proposerValue, recipientValue);
+    
+    const tradeId = result.lastInsertRowid;
+    
+    // Add offered cards (direction: 'offer' = proposer gives to recipient)
+    for (const card of offeredCards || []) {
+      db.prepare(`
+        INSERT INTO trade_items (trade_id, card_id, card_name, card_image, set_name, rarity, market_price, quantity, direction)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'offer')
+      `).run(tradeId, card.cardId, card.cardName, card.cardImage, card.setName, card.rarity, card.marketPrice, card.quantity || 1);
+    }
+    
+    // Add requested cards (direction: 'request' = proposer wants from recipient)
+    for (const card of requestedCards || []) {
+      db.prepare(`
+        INSERT INTO trade_items (trade_id, card_id, card_name, card_image, set_name, rarity, market_price, quantity, direction)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'request')
+      `).run(tradeId, card.cardId, card.cardName, card.cardImage, card.setName, card.rarity, card.marketPrice, card.quantity || 1);
+    }
+    
+    res.json({ 
+      success: true, 
+      tradeId,
+      message: 'Trade proposal sent!'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get my trades (sent and received)
+app.get('/api/trades', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const status = req.query.status || 'all';
+    
+    let whereClause = '(t.proposer_id = ? OR t.recipient_id = ?)';
+    const params = [userId, userId];
+    
+    if (status !== 'all') {
+      whereClause += ' AND t.status = ?';
+      params.push(status);
+    }
+    
+    const trades = db.prepare(`
+      SELECT t.*,
+             proposer.name as proposer_name,
+             recipient.name as recipient_name,
+             CASE WHEN t.proposer_id = ? THEN 'sent' ELSE 'received' END as direction
+      FROM trades t
+      JOIN users proposer ON t.proposer_id = proposer.id
+      JOIN users recipient ON t.recipient_id = recipient.id
+      WHERE ${whereClause}
+      ORDER BY t.created_at DESC
+    `).all(userId, ...params);
+    
+    // Get items for each trade
+    for (const trade of trades) {
+      trade.offeredCards = db.prepare(`
+        SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'offer'
+      `).all(trade.id);
+      
+      trade.requestedCards = db.prepare(`
+        SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'request'
+      `).all(trade.id);
+    }
+    
+    res.json(trades);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single trade
+app.get('/api/trades/:id', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    const trade = db.prepare(`
+      SELECT t.*,
+             proposer.name as proposer_name,
+             recipient.name as recipient_name,
+             CASE WHEN t.proposer_id = ? THEN 'sent' ELSE 'received' END as direction
+      FROM trades t
+      JOIN users proposer ON t.proposer_id = proposer.id
+      JOIN users recipient ON t.recipient_id = recipient.id
+      WHERE t.id = ? AND (t.proposer_id = ? OR t.recipient_id = ?)
+    `).get(userId, req.params.id, userId, userId);
+    
+    if (!trade) {
+      return res.status(404).json({ error: 'Trade not found' });
+    }
+    
+    trade.offeredCards = db.prepare(`
+      SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'offer'
+    `).all(trade.id);
+    
+    trade.requestedCards = db.prepare(`
+      SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'request'
+    `).all(trade.id);
+    
+    res.json(trade);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update trade (accept/reject/cancel)
+app.put('/api/trades/:id', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { action } = req.body;
+    
+    const trade = db.prepare(`
+      SELECT * FROM trades WHERE id = ?
+    `).get(req.params.id);
+    
+    if (!trade) {
+      return res.status(404).json({ error: 'Trade not found' });
+    }
+    
+    if (trade.status !== 'pending') {
+      return res.status(400).json({ error: 'Trade is no longer pending' });
+    }
+    
+    // Validate permissions
+    if (action === 'cancel' && trade.proposer_id !== userId) {
+      return res.status(403).json({ error: 'Only the proposer can cancel' });
+    }
+    
+    if ((action === 'accept' || action === 'reject') && trade.recipient_id !== userId) {
+      return res.status(403).json({ error: 'Only the recipient can accept or reject' });
+    }
+    
+    if (action === 'accept') {
+      // Execute the trade - swap cards between users
+      const offeredCards = db.prepare(`
+        SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'offer'
+      `).all(trade.id);
+      
+      const requestedCards = db.prepare(`
+        SELECT * FROM trade_items WHERE trade_id = ? AND direction = 'request'
+      `).all(trade.id);
+      
+      // Validate both parties still have the cards
+      for (const card of offeredCards) {
+        const owned = db.prepare(`
+          SELECT quantity FROM collection WHERE user_id = ? AND card_id = ?
+        `).get(trade.proposer_id, card.card_id);
+        
+        if (!owned || owned.quantity < card.quantity) {
+          db.prepare('UPDATE trades SET status = ? WHERE id = ?').run('failed', trade.id);
+          return res.status(400).json({ error: `Proposer no longer has ${card.card_name}` });
+        }
+      }
+      
+      for (const card of requestedCards) {
+        const owned = db.prepare(`
+          SELECT quantity FROM collection WHERE user_id = ? AND card_id = ?
+        `).get(trade.recipient_id, card.card_id);
+        
+        if (!owned || owned.quantity < card.quantity) {
+          db.prepare('UPDATE trades SET status = ? WHERE id = ?').run('failed', trade.id);
+          return res.status(400).json({ error: `Recipient no longer has ${card.card_name}` });
+        }
+      }
+      
+      // Execute transfer: proposer's cards go to recipient
+      for (const card of offeredCards) {
+        // Reduce from proposer
+        db.prepare(`
+          UPDATE collection SET quantity = quantity - ? 
+          WHERE user_id = ? AND card_id = ?
+        `).run(card.quantity, trade.proposer_id, card.card_id);
+        
+        // Add to recipient (or update if exists)
+        const existing = db.prepare(`
+          SELECT id FROM collection WHERE user_id = ? AND card_id = ?
+        `).get(trade.recipient_id, card.card_id);
+        
+        if (existing) {
+          db.prepare('UPDATE collection SET quantity = quantity + ? WHERE id = ?')
+            .run(card.quantity, existing.id);
+        } else {
+          db.prepare(`
+            INSERT INTO collection (user_id, card_id, card_name, card_image, set_name, rarity, quantity, market_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(trade.recipient_id, card.card_id, card.card_name, card.card_image, 
+                 card.set_name, card.rarity, card.quantity, card.market_price);
+        }
+        
+        // Remove from recipient's want list if present
+        db.prepare('DELETE FROM want_list WHERE user_id = ? AND card_id = ?')
+          .run(trade.recipient_id, card.card_id);
+      }
+      
+      // Execute transfer: recipient's cards go to proposer
+      for (const card of requestedCards) {
+        // Reduce from recipient
+        db.prepare(`
+          UPDATE collection SET quantity = quantity - ? 
+          WHERE user_id = ? AND card_id = ?
+        `).run(card.quantity, trade.recipient_id, card.card_id);
+        
+        // Add to proposer
+        const existing = db.prepare(`
+          SELECT id FROM collection WHERE user_id = ? AND card_id = ?
+        `).get(trade.proposer_id, card.card_id);
+        
+        if (existing) {
+          db.prepare('UPDATE collection SET quantity = quantity + ? WHERE id = ?')
+            .run(card.quantity, existing.id);
+        } else {
+          db.prepare(`
+            INSERT INTO collection (user_id, card_id, card_name, card_image, set_name, rarity, quantity, market_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(trade.proposer_id, card.card_id, card.card_name, card.card_image,
+                 card.set_name, card.rarity, card.quantity, card.market_price);
+        }
+        
+        // Remove from proposer's want list if present
+        db.prepare('DELETE FROM want_list WHERE user_id = ? AND card_id = ?')
+          .run(trade.proposer_id, card.card_id);
+      }
+      
+      // Clean up zero-quantity entries
+      db.prepare('DELETE FROM collection WHERE quantity <= 0').run();
+    }
+    
+    // Update trade status
+    const newStatus = action === 'accept' ? 'completed' : 
+                      action === 'reject' ? 'rejected' : 'cancelled';
+    
+    db.prepare(`
+      UPDATE trades SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(newStatus, trade.id);
+    
+    res.json({ 
+      success: true, 
+      status: newStatus,
+      message: action === 'accept' ? 'Trade completed! Cards have been exchanged.' :
+               action === 'reject' ? 'Trade rejected' : 'Trade cancelled'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Quick match suggestion endpoint (for a specific user)
+app.get('/api/matches/:userId/suggest', requireAuth, (req, res) => {
+  try {
+    const myId = req.session.userId;
+    const theirId = parseInt(req.params.userId);
+    
+    if (myId === theirId) {
+      return res.status(400).json({ error: 'Cannot match with yourself' });
+    }
+    
+    // Get their want list
+    const theirWants = db.prepare('SELECT card_id FROM want_list WHERE user_id = ?')
+      .all(theirId).map(r => r.card_id);
+    
+    // Get my tradeable cards that they want
+    const canOffer = db.prepare(`
+      SELECT card_id, card_name, card_image, set_name, rarity, market_price, (quantity - 1) as tradeable
+      FROM collection 
+      WHERE user_id = ? AND quantity > 1 AND card_id IN (${theirWants.map(() => '?').join(',') || "''"})
+    `).all(myId, ...theirWants);
+    
+    // Get my want list
+    const myWants = db.prepare('SELECT card_id FROM want_list WHERE user_id = ?')
+      .all(myId).map(r => r.card_id);
+    
+    // Get their tradeable cards that I want
+    const canRequest = db.prepare(`
+      SELECT card_id, card_name, card_image, set_name, rarity, market_price, (quantity - 1) as tradeable
+      FROM collection 
+      WHERE user_id = ? AND quantity > 1 AND card_id IN (${myWants.map(() => '?').join(',') || "''"})
+    `).all(theirId, ...myWants);
+    
+    res.json({
+      canOffer,
+      canRequest,
+      offerValue: canOffer.reduce((s, c) => s + (c.market_price || 0), 0),
+      requestValue: canRequest.reduce((s, c) => s + (c.market_price || 0), 0)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get trade stats
+app.get('/api/trades/stats', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    const stats = db.prepare(`
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'completed' AND proposer_id = ?) as completed_proposed,
+        COUNT(*) FILTER (WHERE status = 'completed' AND recipient_id = ?) as completed_received,
+        COUNT(*) FILTER (WHERE status = 'pending' AND proposer_id = ?) as pending_sent,
+        COUNT(*) FILTER (WHERE status = 'pending' AND recipient_id = ?) as pending_received,
+        COALESCE(SUM(CASE WHEN status = 'completed' AND proposer_id = ? THEN proposer_value ELSE 0 END), 0) as value_traded_out,
+        COALESCE(SUM(CASE WHEN status = 'completed' AND proposer_id = ? THEN recipient_value ELSE 0 END), 0) as value_traded_in
+      FROM trades
+      WHERE proposer_id = ? OR recipient_id = ?
+    `).get(userId, userId, userId, userId, userId, userId, userId, userId);
+    
+    res.json({
+      completedTrades: (stats.completed_proposed || 0) + (stats.completed_received || 0),
+      pendingSent: stats.pending_sent || 0,
+      pendingReceived: stats.pending_received || 0,
+      valueTradedOut: Math.round((stats.value_traded_out || 0) * 100) / 100,
+      valueTradedIn: Math.round((stats.value_traded_in || 0) * 100) / 100
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ SEED DATA ENDPOINT ============
 
 app.post('/api/seed', async (req, res) => {
@@ -948,18 +1498,82 @@ app.post('/api/seed', async (req, res) => {
       `).run(userId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.maxPrice, card.priority);
     }
     
+    // Create additional demo users for trade matching
+    const demoUsers = [
+      { email: 'misty@pokemon.com', name: 'Misty', 
+        collection: [
+          { cardId: 'base1-1', cardName: 'Alakazam', cardImage: 'https://images.pokemontcg.io/base1/1_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 2, marketPrice: 45.00 },
+          { cardId: 'base1-3', cardName: 'Chansey', cardImage: 'https://images.pokemontcg.io/base1/3_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 3, marketPrice: 28.00 },
+          { cardId: 'base1-6', cardName: 'Gyarados', cardImage: 'https://images.pokemontcg.io/base1/6_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 2, marketPrice: 55.00 },
+        ],
+        wants: [
+          { cardId: 'base1-58', cardName: 'Pikachu', cardImage: 'https://images.pokemontcg.io/base1/58_hires.png', setId: 'base1', setName: 'Base', rarity: 'Common', maxPrice: 20.00 },
+          { cardId: 'base1-4', cardName: 'Charizard', cardImage: 'https://images.pokemontcg.io/base1/4_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 500.00 },
+        ]
+      },
+      { email: 'brock@pokemon.com', name: 'Brock',
+        collection: [
+          { cardId: 'base1-58', cardName: 'Pikachu', cardImage: 'https://images.pokemontcg.io/base1/58_hires.png', setId: 'base1', setName: 'Base', rarity: 'Common', quantity: 5, marketPrice: 15.00 },
+          { cardId: 'sv3pt5-199', cardName: 'Mew ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/199_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', quantity: 2, marketPrice: 180.00 },
+        ],
+        wants: [
+          { cardId: 'base1-2', cardName: 'Blastoise', cardImage: 'https://images.pokemontcg.io/base1/2_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 100.00 },
+          { cardId: 'sv3pt5-197', cardName: 'Umbreon ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/197_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', maxPrice: 160.00 },
+        ]
+      },
+      { email: 'gary@pokemon.com', name: 'Gary Oak',
+        collection: [
+          { cardId: 'base1-2', cardName: 'Blastoise', cardImage: 'https://images.pokemontcg.io/base1/2_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 3, marketPrice: 85.00 },
+          { cardId: 'base1-15', cardName: 'Venusaur', cardImage: 'https://images.pokemontcg.io/base1/15_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 2, marketPrice: 65.00 },
+        ],
+        wants: [
+          { cardId: 'base1-4', cardName: 'Charizard', cardImage: 'https://images.pokemontcg.io/base1/4_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 500.00 },
+          { cardId: 'swsh9-166', cardName: 'Charizard VSTAR', cardImage: 'https://images.pokemontcg.io/swsh9/166_hires.png', setId: 'swsh9', setName: 'Brilliant Stars', rarity: 'Rare Holo VSTAR', maxPrice: 40.00 },
+        ]
+      }
+    ];
+    
+    let additionalUsers = 0;
+    let additionalCards = 0;
+    let additionalWants = 0;
+    
+    for (const demoUser of demoUsers) {
+      const userResult = db.prepare('INSERT INTO users (email, password, name) VALUES (?, ?, ?)')
+        .run(demoUser.email, hashedPassword, demoUser.name);
+      const demoUserId = userResult.lastInsertRowid;
+      additionalUsers++;
+      
+      for (const card of demoUser.collection) {
+        db.prepare(`
+          INSERT INTO collection (user_id, card_id, card_name, card_image, set_id, set_name, rarity, quantity, market_price)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(demoUserId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.quantity, card.marketPrice);
+        additionalCards++;
+      }
+      
+      for (const want of demoUser.wants) {
+        db.prepare(`
+          INSERT INTO want_list (user_id, card_id, card_name, card_image, set_id, set_name, rarity, max_price, priority)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `).run(demoUserId, want.cardId, want.cardName, want.cardImage, want.setId, want.setName, want.rarity, want.maxPrice);
+        additionalWants++;
+      }
+    }
+    
     res.json({ 
       success: true, 
-      message: 'Database seeded successfully',
+      message: 'Database seeded successfully with trade demo data',
       created: {
-        users: 1,
-        collectionCards: sampleCollection.length,
-        wantListCards: sampleWantList.length
+        users: 1 + additionalUsers,
+        collectionCards: sampleCollection.length + additionalCards,
+        wantListCards: sampleWantList.length + additionalWants
       },
-      demoLogin: {
-        email: 'trainer@pokemon.com',
-        password: 'password123'
-      }
+      demoLogins: [
+        { email: 'trainer@pokemon.com', password: 'password123', description: 'Main user (Ash)' },
+        { email: 'misty@pokemon.com', password: 'password123', description: 'Has Alakazam, Chansey (Ash wants these)' },
+        { email: 'brock@pokemon.com', password: 'password123', description: 'Has Mew ex (Ash wants), wants Umbreon ex' },
+        { email: 'gary@pokemon.com', password: 'password123', description: 'Wants Charizard VSTAR (Ash has dupes)' }
+      ]
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

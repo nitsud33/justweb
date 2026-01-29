@@ -103,12 +103,62 @@ db.exec(`
     cached_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Trade proposals between users
+  CREATE TABLE IF NOT EXISTS trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proposer_id INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL,
+    status TEXT DEFAULT 'pending',
+    message TEXT,
+    proposer_value REAL DEFAULT 0,
+    recipient_value REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (proposer_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id)
+  );
+
+  -- Cards offered/requested in trades
+  CREATE TABLE IF NOT EXISTS trade_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_id INTEGER NOT NULL,
+    card_id TEXT NOT NULL,
+    card_name TEXT NOT NULL,
+    card_image TEXT,
+    set_name TEXT,
+    rarity TEXT,
+    market_price REAL,
+    quantity INTEGER DEFAULT 1,
+    direction TEXT NOT NULL,
+    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
+  );
+
+  -- Match scores between users (cached)
+  CREATE TABLE IF NOT EXISTS match_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user1_id INTEGER NOT NULL,
+    user2_id INTEGER NOT NULL,
+    score REAL NOT NULL,
+    direct_matches INTEGER DEFAULT 0,
+    last_calculated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user1_id) REFERENCES users(id),
+    FOREIGN KEY (user2_id) REFERENCES users(id),
+    UNIQUE(user1_id, user2_id)
+  );
+
   -- Create indexes for performance
   CREATE INDEX IF NOT EXISTS idx_price_history_card ON price_history(card_id);
   CREATE INDEX IF NOT EXISTS idx_price_history_date ON price_history(recorded_at);
   CREATE INDEX IF NOT EXISTS idx_collection_user ON collection(user_id);
   CREATE INDEX IF NOT EXISTS idx_collection_set ON collection(set_id);
   CREATE INDEX IF NOT EXISTS idx_portfolio_user_date ON portfolio_snapshots(user_id, snapshot_date);
+  CREATE INDEX IF NOT EXISTS idx_trades_proposer ON trades(proposer_id);
+  CREATE INDEX IF NOT EXISTS idx_trades_recipient ON trades(recipient_id);
+  CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
+  CREATE INDEX IF NOT EXISTS idx_trade_items_trade ON trade_items(trade_id);
+  CREATE INDEX IF NOT EXISTS idx_match_scores_user ON match_scores(user1_id);
+  CREATE INDEX IF NOT EXISTS idx_want_list_card ON want_list(card_id);
+  CREATE INDEX IF NOT EXISTS idx_collection_card ON collection(card_id);
 `);
 
 // Migrations
