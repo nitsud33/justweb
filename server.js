@@ -374,6 +374,403 @@ app.get('/api/collection/by-set', requireAuth, (req, res) => {
   res.json(bySet);
 });
 
+// ============ SET COMPLETION TRACKER ============
+
+// Get detailed set completion with missing cards
+app.get('/api/sets/:id/completion', requireAuth, async (req, res) => {
+  try {
+    const setId = req.params.id;
+    
+    // Fetch all cards in set from API
+    const endpoint = `/cards?q=set.id:${setId}&pageSize=250&orderBy=number`;
+    const data = await fetchPokemonAPI(endpoint, `set_cards:${setId}`, 86400000);
+    const allCards = data.data || [];
+    
+    // Get user's owned cards in this set
+    const owned = db.prepare(`
+      SELECT card_id, card_name, quantity, condition, market_price 
+      FROM collection 
+      WHERE user_id = ? AND set_id = ?
+    `).all(req.session.userId, setId);
+    
+    const ownedIds = new Set(owned.map(c => c.card_id));
+    
+    // Calculate completion
+    const ownedCards = allCards.filter(c => ownedIds.has(c.id));
+    const missingCards = allCards.filter(c => !ownedIds.has(c.id));
+    
+    // Calculate cost to complete
+    const completionCost = missingCards.reduce((sum, card) => {
+      const price = card.tcgplayer?.prices?.holofoil?.market ||
+                   card.tcgplayer?.prices?.normal?.market ||
+                   card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+      return sum + price;
+    }, 0);
+    
+    // Current owned value
+    const ownedValue = ownedCards.reduce((sum, card) => {
+      const price = card.tcgplayer?.prices?.holofoil?.market ||
+                   card.tcgplayer?.prices?.normal?.market ||
+                   card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+      return sum + price;
+    }, 0);
+    
+    res.json({
+      setId,
+      totalCards: allCards.length,
+      ownedCount: ownedCards.length,
+      missingCount: missingCards.length,
+      completionPercent: Math.round((ownedCards.length / allCards.length) * 100),
+      ownedValue: Math.round(ownedValue * 100) / 100,
+      completionCost: Math.round(completionCost * 100) / 100,
+      missingCards: missingCards.map(card => ({
+        id: card.id,
+        name: card.name,
+        number: card.number,
+        rarity: card.rarity,
+        image: card.images?.small,
+        price: card.tcgplayer?.prices?.holofoil?.market ||
+               card.tcgplayer?.prices?.normal?.market ||
+               card.tcgplayer?.prices?.reverseHolofoil?.market || null
+      })).sort((a, b) => (a.price || 0) - (b.price || 0)), // cheapest first
+      ownedCards: ownedCards.map(card => ({
+        id: card.id,
+        name: card.name,
+        number: card.number,
+        rarity: card.rarity,
+        image: card.images?.small
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ PORTFOLIO DASHBOARD ============
+
+// Get portfolio stats with daily tracking
+app.get('/api/portfolio/stats', requireAuth, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    
+    // Current totals
+    const current = db.prepare(`
+      SELECT 
+        COUNT(DISTINCT card_id) as uniqueCards,
+        COALESCE(SUM(quantity), 0) as totalCards,
+        COALESCE(SUM(quantity * COALESCE(market_price, 0)), 0) as totalValue,
+        COALESCE(SUM(quantity * COALESCE(purchase_price, 0)), 0) as totalCost
+      FROM collection WHERE user_id = ?
+    `).get(userId);
+    
+    // Top 5 most valuable cards
+    const topCards = db.prepare(`
+      SELECT card_id, card_name, card_image, set_name, rarity, quantity, market_price,
+             (quantity * COALESCE(market_price, 0)) as total_value
+      FROM collection 
+      WHERE user_id = ? AND market_price IS NOT NULL
+      ORDER BY total_value DESC
+      LIMIT 5
+    `).all(userId);
+    
+    // Value by set
+    const bySet = db.prepare(`
+      SELECT set_id, set_name,
+             COUNT(DISTINCT card_id) as cards,
+             SUM(quantity * COALESCE(market_price, 0)) as value
+      FROM collection 
+      WHERE user_id = ? AND set_id IS NOT NULL
+      GROUP BY set_id
+      ORDER BY value DESC
+      LIMIT 10
+    `).all(userId);
+    
+    // Get yesterday's snapshot for daily change
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const prevSnapshot = db.prepare(`
+      SELECT total_value FROM portfolio_snapshots 
+      WHERE user_id = ? AND snapshot_date <= ?
+      ORDER BY snapshot_date DESC LIMIT 1
+    `).get(userId, yesterdayStr);
+    
+    // Calculate daily change
+    const dailyChange = prevSnapshot 
+      ? current.totalValue - prevSnapshot.total_value 
+      : 0;
+    const dailyChangePercent = prevSnapshot && prevSnapshot.total_value > 0
+      ? ((current.totalValue - prevSnapshot.total_value) / prevSnapshot.total_value) * 100
+      : 0;
+    
+    // Save today's snapshot
+    const todayStr = new Date().toISOString().split('T')[0];
+    db.prepare(`
+      INSERT OR REPLACE INTO portfolio_snapshots (user_id, total_value, total_cards, snapshot_date)
+      VALUES (?, ?, ?, ?)
+    `).run(userId, current.totalValue, current.totalCards, todayStr);
+    
+    // ROI calculation
+    const roi = current.totalCost > 0 
+      ? ((current.totalValue - current.totalCost) / current.totalCost) * 100 
+      : 0;
+    
+    res.json({
+      uniqueCards: current.uniqueCards,
+      totalCards: current.totalCards,
+      totalValue: Math.round(current.totalValue * 100) / 100,
+      totalCost: Math.round(current.totalCost * 100) / 100,
+      profit: Math.round((current.totalValue - current.totalCost) * 100) / 100,
+      roi: Math.round(roi * 10) / 10,
+      dailyChange: Math.round(dailyChange * 100) / 100,
+      dailyChangePercent: Math.round(dailyChangePercent * 10) / 10,
+      topCards,
+      bySet
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Portfolio value history (for charts)
+app.get('/api/portfolio/history', requireAuth, (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  const history = db.prepare(`
+    SELECT snapshot_date, total_value, total_cards
+    FROM portfolio_snapshots
+    WHERE user_id = ?
+    ORDER BY snapshot_date DESC
+    LIMIT ?
+  `).all(req.session.userId, days);
+  
+  res.json(history.reverse());
+});
+
+// ============ DUPLICATES TRACKER ============
+
+app.get('/api/collection/duplicates', requireAuth, (req, res) => {
+  const duplicates = db.prepare(`
+    SELECT card_id, card_name, card_image, set_name, rarity, 
+           SUM(quantity) as total_quantity, market_price,
+           (SUM(quantity) - 1) as trade_quantity,
+           ((SUM(quantity) - 1) * COALESCE(market_price, 0)) as trade_value
+    FROM collection 
+    WHERE user_id = ?
+    GROUP BY card_id
+    HAVING total_quantity > 1
+    ORDER BY trade_value DESC
+  `).all(req.session.userId);
+  
+  const totalTradeValue = duplicates.reduce((sum, d) => sum + (d.trade_value || 0), 0);
+  
+  res.json({
+    duplicates,
+    totalTradeValue: Math.round(totalTradeValue * 100) / 100,
+    totalTradeCards: duplicates.reduce((sum, d) => sum + d.trade_quantity, 0)
+  });
+});
+
+// ============ SHAREABLE COLLECTION ============
+
+// Get current user's share settings
+app.get('/api/share/settings', requireAuth, (req, res) => {
+  const user = db.prepare(`
+    SELECT share_token, profile_public FROM users WHERE id = ?
+  `).get(req.session.userId);
+  
+  res.json({
+    shareToken: user.share_token,
+    isPublic: user.profile_public === 1,
+    shareUrl: user.share_token ? `/c/${user.share_token}` : null
+  });
+});
+
+// Toggle public profile
+app.post('/api/share/toggle', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT profile_public, share_token FROM users WHERE id = ?')
+    .get(req.session.userId);
+  
+  const newStatus = user.profile_public === 1 ? 0 : 1;
+  
+  // Generate share token if doesn't exist
+  let shareToken = user.share_token;
+  if (!shareToken && newStatus === 1) {
+    shareToken = db.generateShareToken ? db.generateShareToken() : 
+                 require('crypto').randomBytes(8).toString('hex');
+    db.prepare('UPDATE users SET share_token = ? WHERE id = ?')
+      .run(shareToken, req.session.userId);
+  }
+  
+  db.prepare('UPDATE users SET profile_public = ? WHERE id = ?')
+    .run(newStatus, req.session.userId);
+  
+  res.json({ 
+    isPublic: newStatus === 1, 
+    shareToken,
+    shareUrl: `/c/${shareToken}`
+  });
+});
+
+// Public collection view (no auth required)
+app.get('/api/public/collection/:token', (req, res) => {
+  const user = db.prepare(`
+    SELECT id, name, share_token, profile_public, created_at FROM users 
+    WHERE share_token = ? AND profile_public = 1
+  `).get(req.params.token);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'Collection not found or private' });
+  }
+  
+  const collection = db.prepare(`
+    SELECT card_id, card_name, card_image, set_id, set_name, rarity, quantity, market_price
+    FROM collection WHERE user_id = ?
+    ORDER BY market_price DESC NULLS LAST
+  `).all(user.id);
+  
+  const stats = db.prepare(`
+    SELECT 
+      COUNT(DISTINCT card_id) as uniqueCards,
+      COALESCE(SUM(quantity), 0) as totalCards,
+      COALESCE(SUM(quantity * COALESCE(market_price, 0)), 0) as totalValue
+    FROM collection WHERE user_id = ?
+  `).get(user.id);
+  
+  const bySet = db.prepare(`
+    SELECT set_name, COUNT(DISTINCT card_id) as cards
+    FROM collection WHERE user_id = ? AND set_name IS NOT NULL
+    GROUP BY set_name ORDER BY cards DESC LIMIT 5
+  `).all(user.id);
+  
+  res.json({
+    collector: {
+      name: user.name,
+      memberSince: user.created_at
+    },
+    stats,
+    topSets: bySet,
+    collection
+  });
+});
+
+// ============ PRICE HISTORY ============
+
+// Record price when viewing card (background task)
+async function recordPrice(cardId, price) {
+  if (!price || price <= 0) return;
+  
+  // Only record once per day per card
+  const today = new Date().toISOString().split('T')[0];
+  const existing = db.prepare(`
+    SELECT id FROM price_history 
+    WHERE card_id = ? AND DATE(recorded_at) = ?
+  `).get(cardId, today);
+  
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO price_history (card_id, price, recorded_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    `).run(cardId, price);
+  }
+}
+
+// Get price history for a card
+app.get('/api/cards/:id/price-history', async (req, res) => {
+  try {
+    const cardId = req.params.id;
+    const days = parseInt(req.query.days) || 90;
+    
+    // Get from our DB
+    const history = db.prepare(`
+      SELECT price, DATE(recorded_at) as date
+      FROM price_history 
+      WHERE card_id = ?
+      ORDER BY recorded_at DESC
+      LIMIT ?
+    `).all(cardId, days);
+    
+    // If we don't have much history, fetch current price and record it
+    if (history.length < 2) {
+      try {
+        const cardData = await fetchPokemonAPI(`/cards/${cardId}`, `card:${cardId}`);
+        const card = cardData.data;
+        const price = card?.tcgplayer?.prices?.holofoil?.market ||
+                     card?.tcgplayer?.prices?.normal?.market ||
+                     card?.tcgplayer?.prices?.reverseHolofoil?.market;
+        if (price) {
+          recordPrice(cardId, price);
+        }
+      } catch (e) {}
+    }
+    
+    res.json({
+      cardId,
+      history: history.reverse(),
+      dataPoints: history.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ PRICE ALERTS ============
+
+app.get('/api/alerts', requireAuth, (req, res) => {
+  const alerts = db.prepare(`
+    SELECT a.*, w.card_name, w.card_image 
+    FROM price_alerts a
+    LEFT JOIN want_list w ON a.card_id = w.card_id AND a.user_id = w.user_id
+    WHERE a.user_id = ? AND a.active = 1
+    ORDER BY a.created_at DESC
+  `).all(req.session.userId);
+  
+  res.json(alerts);
+});
+
+app.post('/api/alerts', requireAuth, (req, res) => {
+  const { cardId, targetPrice, alertType = 'below' } = req.body;
+  
+  if (!cardId || !targetPrice) {
+    return res.status(400).json({ error: 'Card ID and target price required' });
+  }
+  
+  const result = db.prepare(`
+    INSERT INTO price_alerts (user_id, card_id, target_price, alert_type)
+    VALUES (?, ?, ?, ?)
+  `).run(req.session.userId, cardId, targetPrice, alertType);
+  
+  res.json({ success: true, alertId: result.lastInsertRowid });
+});
+
+app.delete('/api/alerts/:id', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM price_alerts WHERE id = ? AND user_id = ?')
+    .run(req.params.id, req.session.userId);
+  res.json({ success: true });
+});
+
+// ============ EXPORT COLLECTION ============
+
+app.get('/api/collection/export', requireAuth, (req, res) => {
+  const collection = db.prepare(`
+    SELECT card_id, card_name, set_name, rarity, quantity, condition, purchase_price, market_price, added_at
+    FROM collection WHERE user_id = ?
+    ORDER BY set_name, card_name
+  `).all(req.session.userId);
+  
+  // CSV format
+  const headers = ['Card ID', 'Card Name', 'Set', 'Rarity', 'Quantity', 'Condition', 'Purchase Price', 'Market Price', 'Added'];
+  const rows = collection.map(c => [
+    c.card_id, c.card_name, c.set_name || '', c.rarity || '', 
+    c.quantity, c.condition, c.purchase_price || '', c.market_price || '', c.added_at
+  ]);
+  
+  const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+  
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=pokemon-collection.csv');
+  res.send(csv);
+});
+
 // ============ WANT LIST ROUTES ============
 
 app.get('/api/want-list', requireAuth, (req, res) => {

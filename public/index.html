@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pokemon Card Finder</title>
+  <title>Pokemon Card Finder - Track Your Collection</title>
+  <meta name="description" content="Track your Pokemon card collection, monitor prices, find missing cards to complete sets, and share your collection with friends.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * {
       margin: 0;
@@ -53,6 +55,7 @@
       font-size: 1.5rem;
       font-weight: bold;
       color: var(--primary);
+      cursor: pointer;
     }
     
     .logo span {
@@ -62,6 +65,7 @@
     nav {
       display: flex;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
     
     nav button {
@@ -72,6 +76,7 @@
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s;
+      font-size: 0.9rem;
     }
     
     nav button:hover, nav button.active {
@@ -143,7 +148,7 @@
       font-size: 0.9rem;
     }
     
-    .form-group input, .form-group select {
+    .form-group input, .form-group select, .form-group textarea {
       width: 100%;
       padding: 0.75rem 1rem;
       background: var(--bg-input);
@@ -226,6 +231,62 @@
       cursor: pointer;
     }
     
+    /* Dashboard / Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    
+    .stat-card .stat-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .stat-card .stat-value {
+      font-size: 1.75rem;
+      font-weight: bold;
+    }
+    
+    .stat-card .stat-change {
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+    
+    .stat-card .stat-change.positive {
+      color: var(--success);
+    }
+    
+    .stat-card .stat-change.negative {
+      color: var(--danger);
+    }
+    
+    /* Chart container */
+    .chart-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .chart-container h3 {
+      margin-bottom: 1rem;
+    }
+    
+    .chart-container canvas {
+      max-height: 300px;
+    }
+    
     /* Search Section */
     .search-section {
       margin-bottom: 2rem;
@@ -266,6 +327,7 @@
       border: 1px solid var(--border);
       transition: transform 0.2s, box-shadow 0.2s;
       cursor: pointer;
+      position: relative;
     }
     
     .card-item:hover {
@@ -329,8 +391,15 @@
       font-weight: bold;
     }
     
-    .card-item {
-      position: relative;
+    .card-owned-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: var(--success);
+      color: white;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
     }
     
     /* Set Browser */
@@ -396,6 +465,20 @@
       transition: width 0.3s;
     }
     
+    .progress-bar-large {
+      width: 100%;
+      height: 20px;
+      border-radius: 10px;
+    }
+    
+    .progress-bar-large .progress-bar-fill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
     /* Modal */
     .modal-overlay {
       position: fixed;
@@ -418,7 +501,7 @@
     .modal {
       background: var(--bg-card);
       border-radius: 16px;
-      max-width: 600px;
+      max-width: 700px;
       width: 90%;
       max-height: 90vh;
       overflow-y: auto;
@@ -488,10 +571,18 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     
     .page-header h1 {
       font-size: 1.75rem;
+    }
+    
+    .page-header-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
     
     /* Empty State */
@@ -555,6 +646,103 @@
       border-color: var(--danger);
     }
     
+    /* Share Section */
+    .share-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .share-url {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .share-url input {
+      flex: 1;
+      padding: 0.75rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: monospace;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    
+    .tabs button {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .tabs button:hover, .tabs button.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    
+    /* Two Column Layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    
+    /* Completion Cost Badge */
+    .cost-badge {
+      background: var(--warning);
+      color: #000;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: bold;
+      display: inline-block;
+    }
+    
+    /* List Items */
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .list-item img {
+      width: 50px;
+      height: 70px;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    
+    .list-item-info {
+      flex: 1;
+    }
+    
+    .list-item-name {
+      font-weight: 600;
+    }
+    
+    .list-item-meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
     /* Responsive */
     @media (max-width: 768px) {
       header {
@@ -564,7 +752,6 @@
       }
       
       nav {
-        flex-wrap: wrap;
         justify-content: center;
       }
       
@@ -589,6 +776,14 @@
       
       main {
         padding: 1rem;
+      }
+      
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
@@ -616,13 +811,14 @@
 </head>
 <body>
   <header>
-    <div class="logo">
+    <div class="logo" onclick="showPage('dashboard')">
       <span>🎴</span>
       Pokemon Card Finder
     </div>
     
     <nav id="mainNav" style="display: none;">
-      <button data-page="search" class="active">🔍 Search</button>
+      <button data-page="dashboard" class="active">📊 Dashboard</button>
+      <button data-page="search">🔍 Search</button>
       <button data-page="collection">📦 Collection</button>
       <button data-page="want-list">💫 Want List</button>
       <button data-page="sets">📚 Sets</button>
@@ -637,10 +833,6 @@
         <div class="stat">
           <span>Value:</span>
           <span class="stat-value" id="statValue">$0</span>
-        </div>
-        <div class="stat">
-          <span>Want:</span>
-          <span class="stat-value" id="statWant">0</span>
         </div>
       </div>
       <span id="userName"></span>
@@ -685,6 +877,64 @@
       </div>
     </div>
     
+    <!-- Dashboard Page -->
+    <div class="page" id="dashboardPage">
+      <div class="page-header">
+        <h1>📊 Portfolio Dashboard</h1>
+        <div class="page-header-actions">
+          <button class="btn btn-secondary btn-small" onclick="loadPortfolioStats()">↻ Refresh</button>
+          <button class="btn btn-secondary btn-small" onclick="exportCollection()">📥 Export CSV</button>
+          <button class="btn btn-primary btn-small" onclick="openShareModal()">🔗 Share Collection</button>
+        </div>
+      </div>
+      
+      <div class="stats-grid" id="portfolioStats">
+        <div class="stat-card">
+          <div class="stat-label">Total Value</div>
+          <div class="stat-value" id="dashTotalValue">$0.00</div>
+          <div class="stat-change" id="dashDailyChange">+$0.00 today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unique Cards</div>
+          <div class="stat-value" id="dashUniqueCards">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Cards</div>
+          <div class="stat-value" id="dashTotalCards">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ROI</div>
+          <div class="stat-value" id="dashROI">0%</div>
+          <div class="stat-change" id="dashProfit">$0 profit</div>
+        </div>
+      </div>
+      
+      <div class="two-col">
+        <div class="chart-container">
+          <h3>📈 Portfolio Value (30 Days)</h3>
+          <canvas id="portfolioChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+          <h3>🥧 Value by Set</h3>
+          <canvas id="setChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="two-col">
+        <div>
+          <h3 style="margin-bottom: 1rem;">💎 Most Valuable Cards</h3>
+          <div id="topCardsContainer"></div>
+        </div>
+        
+        <div>
+          <h3 style="margin-bottom: 1rem;">🔄 Trade Bait (Duplicates)</h3>
+          <div id="duplicatesContainer"></div>
+          <div id="duplicatesSummary" style="margin-top: 1rem; color: var(--text-muted);"></div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Search Page -->
     <div class="page" id="searchPage">
       <div class="search-section">
@@ -707,8 +957,9 @@
     <div class="page" id="collectionPage">
       <div class="page-header">
         <h1>📦 My Collection</h1>
-        <div>
-          <span id="collectionTotal" style="color: var(--success); font-weight: bold; margin-right: 1rem;"></span>
+        <div class="page-header-actions">
+          <span id="collectionTotal" style="color: var(--success); font-weight: bold;"></span>
+          <button class="btn btn-secondary btn-small" onclick="exportCollection()">📥 Export</button>
         </div>
       </div>
       
@@ -758,13 +1009,49 @@
         <button class="btn btn-secondary" onclick="showPage('sets')">← Back to Sets</button>
       </div>
       
-      <div style="margin-bottom: 1rem;">
-        <span id="setCompletionText" style="color: var(--text-muted);"></span>
+      <!-- Completion Stats -->
+      <div class="stats-grid" style="margin-bottom: 1.5rem;" id="setCompletionStats">
+        <div class="stat-card">
+          <div class="stat-label">Completion</div>
+          <div class="stat-value" id="setCompletionPercent">0%</div>
+          <div class="progress-bar progress-bar-large" style="margin-top: 0.5rem;">
+            <div class="progress-bar-fill" id="setProgressFill" style="width: 0%;"></div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cards Owned</div>
+          <div class="stat-value" id="setOwnedCount">0/0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Owned Value</div>
+          <div class="stat-value" id="setOwnedValue">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cost to Complete</div>
+          <div class="stat-value" id="setCompletionCost">$0</div>
+        </div>
+      </div>
+      
+      <div class="tabs">
+        <button class="active" onclick="switchSetTab('all')">All Cards</button>
+        <button onclick="switchSetTab('missing')">Missing (<span id="missingCount">0</span>)</button>
+        <button onclick="switchSetTab('owned')">Owned (<span id="ownedCount">0</span>)</button>
       </div>
       
       <div id="setDetailResults">
         <div class="loading">Loading cards</div>
       </div>
+    </div>
+    
+    <!-- Public Collection Page (for shared links) -->
+    <div class="page" id="publicCollectionPage">
+      <div class="page-header">
+        <h1 id="publicCollectionTitle">Collection</h1>
+      </div>
+      
+      <div class="stats-grid" id="publicStats"></div>
+      
+      <div id="publicCollectionResults"></div>
     </div>
   </main>
   
@@ -800,6 +1087,12 @@
               <span class="detail-value" id="modalCardArtist">-</span>
             </div>
             
+            <!-- Price History Chart -->
+            <div id="modalPriceHistory" style="margin-top: 1rem; display: none;">
+              <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem;">Price History (90 days)</h4>
+              <canvas id="modalPriceChart" height="100"></canvas>
+            </div>
+            
             <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
               <button class="btn btn-success" id="modalAddCollection" onclick="addToCollection()">
                 ➕ Add to Collection
@@ -818,6 +1111,44 @@
     </div>
   </div>
   
+  <!-- Share Modal -->
+  <div class="modal-overlay" id="shareModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>🔗 Share Your Collection</h3>
+        <button class="modal-close" onclick="closeShareModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+          Share your collection with others. They can view your cards but not make changes.
+        </p>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="sharePublicToggle" onchange="toggleSharePublic()">
+            Make my collection public
+          </label>
+        </div>
+        
+        <div id="shareUrlSection" style="display: none;">
+          <div class="share-url">
+            <input type="text" id="shareUrlInput" readonly>
+            <button class="btn btn-primary" onclick="copyShareUrl()">📋 Copy</button>
+          </div>
+          
+          <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-small" onclick="shareToTwitter()">
+              🐦 Share on X
+            </button>
+            <button class="btn btn-secondary btn-small" onclick="shareToReddit()">
+              📢 Share on Reddit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <!-- Toast -->
   <div class="toast" id="toast">
     <span id="toastMessage"></span>
@@ -830,9 +1161,21 @@
     let allSets = [];
     let myCollection = [];
     let myWantList = [];
+    let currentSetData = null;
+    let portfolioChart = null;
+    let setChart = null;
+    let modalPriceChart = null;
     
     // Init
     document.addEventListener('DOMContentLoaded', () => {
+      // Check if viewing public collection
+      const path = window.location.pathname;
+      if (path.startsWith('/c/')) {
+        const token = path.split('/c/')[1];
+        loadPublicCollection(token);
+        return;
+      }
+      
       checkAuth();
       checkGoogleAuth();
       
@@ -846,17 +1189,18 @@
         btn.addEventListener('click', () => {
           const page = btn.dataset.page;
           showPage(page);
-          document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
         });
       });
       
       // Auth form
       document.getElementById('authForm').addEventListener('submit', handleAuth);
       
-      // Close modal on overlay click
+      // Close modals on overlay click
       document.getElementById('cardModal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeModal();
+      });
+      document.getElementById('shareModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeShareModal();
       });
     });
     
@@ -938,16 +1282,16 @@
       document.getElementById('userName').textContent = data.user.name;
       
       updateStats(data.stats);
-      showPage('search');
+      showPage('dashboard');
       loadCollection();
       loadWantList();
       loadSets();
+      loadPortfolioStats();
     }
     
     function updateStats(stats) {
       document.getElementById('statCards').textContent = stats?.totalQuantity || 0;
       document.getElementById('statValue').textContent = '$' + (stats?.totalValue || 0).toFixed(2);
-      document.getElementById('statWant').textContent = stats?.wantListCount || 0;
     }
     
     // Navigation
@@ -959,9 +1303,166 @@
       document.querySelectorAll('nav button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.page === page);
       });
+      
+      // Load page-specific data
+      if (page === 'dashboard') loadPortfolioStats();
     }
     
-    // Search
+    // ============ PORTFOLIO DASHBOARD ============
+    
+    async function loadPortfolioStats() {
+      try {
+        const [statsRes, historyRes, duplicatesRes] = await Promise.all([
+          fetch('/api/portfolio/stats'),
+          fetch('/api/portfolio/history?days=30'),
+          fetch('/api/collection/duplicates')
+        ]);
+        
+        const stats = await statsRes.json();
+        const history = await historyRes.json();
+        const duplicates = await duplicatesRes.json();
+        
+        // Update stat cards
+        document.getElementById('dashTotalValue').textContent = '$' + stats.totalValue.toFixed(2);
+        document.getElementById('dashUniqueCards').textContent = stats.uniqueCards;
+        document.getElementById('dashTotalCards').textContent = stats.totalCards;
+        document.getElementById('dashROI').textContent = stats.roi.toFixed(1) + '%';
+        
+        const changeEl = document.getElementById('dashDailyChange');
+        const changePrefix = stats.dailyChange >= 0 ? '+' : '';
+        changeEl.textContent = `${changePrefix}$${stats.dailyChange.toFixed(2)} today (${changePrefix}${stats.dailyChangePercent.toFixed(1)}%)`;
+        changeEl.className = `stat-change ${stats.dailyChange >= 0 ? 'positive' : 'negative'}`;
+        
+        const profitEl = document.getElementById('dashProfit');
+        profitEl.textContent = `$${stats.profit.toFixed(2)} profit`;
+        profitEl.className = `stat-change ${stats.profit >= 0 ? 'positive' : 'negative'}`;
+        
+        // Top cards
+        const topCardsContainer = document.getElementById('topCardsContainer');
+        if (stats.topCards && stats.topCards.length > 0) {
+          topCardsContainer.innerHTML = stats.topCards.map(card => `
+            <div class="list-item" onclick="openCardModal('${card.card_id}', true)">
+              <img src="${card.card_image || ''}" alt="${card.card_name}">
+              <div class="list-item-info">
+                <div class="list-item-name">${card.card_name}</div>
+                <div class="list-item-meta">${card.set_name || ''} • ${card.rarity || ''}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="color: var(--success); font-weight: bold;">$${(card.total_value || 0).toFixed(2)}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">×${card.quantity}</div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          topCardsContainer.innerHTML = '<p style="color: var(--text-muted);">No cards with prices yet</p>';
+        }
+        
+        // Duplicates
+        const duplicatesContainer = document.getElementById('duplicatesContainer');
+        if (duplicates.duplicates && duplicates.duplicates.length > 0) {
+          duplicatesContainer.innerHTML = duplicates.duplicates.slice(0, 5).map(card => `
+            <div class="list-item">
+              <img src="${card.card_image || ''}" alt="${card.card_name}">
+              <div class="list-item-info">
+                <div class="list-item-name">${card.card_name}</div>
+                <div class="list-item-meta">${card.set_name || ''}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="color: var(--warning); font-weight: bold;">×${card.trade_quantity} extra</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">$${(card.trade_value || 0).toFixed(2)} value</div>
+              </div>
+            </div>
+          `).join('');
+          document.getElementById('duplicatesSummary').textContent = 
+            `Total trade bait: ${duplicates.totalTradeCards} cards worth $${duplicates.totalTradeValue.toFixed(2)}`;
+        } else {
+          duplicatesContainer.innerHTML = '<p style="color: var(--text-muted);">No duplicates yet</p>';
+          document.getElementById('duplicatesSummary').textContent = '';
+        }
+        
+        // Portfolio Chart
+        renderPortfolioChart(history);
+        
+        // Set Chart
+        renderSetChart(stats.bySet);
+        
+      } catch (e) {
+        console.error('Error loading portfolio stats:', e);
+      }
+    }
+    
+    function renderPortfolioChart(history) {
+      const ctx = document.getElementById('portfolioChart').getContext('2d');
+      
+      if (portfolioChart) portfolioChart.destroy();
+      
+      const labels = history.map(h => h.snapshot_date);
+      const values = history.map(h => h.total_value);
+      
+      portfolioChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Portfolio Value',
+            data: values,
+            borderColor: '#ff6b35',
+            backgroundColor: 'rgba(255, 107, 53, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              ticks: { color: '#a0a0b0' },
+              grid: { color: '#2a2a4a' }
+            },
+            x: {
+              ticks: { color: '#a0a0b0', maxTicksLimit: 7 },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+    
+    function renderSetChart(bySet) {
+      const ctx = document.getElementById('setChart').getContext('2d');
+      
+      if (setChart) setChart.destroy();
+      
+      const colors = ['#ff6b35', '#3498db', '#27ae60', '#f39c12', '#9b59b6', '#e74c3c', '#1abc9c', '#34495e', '#f1c40f', '#e91e63'];
+      
+      setChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: bySet.map(s => s.set_name || 'Unknown'),
+          datasets: [{
+            data: bySet.map(s => s.value),
+            backgroundColor: colors.slice(0, bySet.length),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#ffffff', font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+    
+    // ============ SEARCH ============
+    
     async function searchCards() {
       const query = document.getElementById('searchInput').value.trim();
       if (!query) return;
@@ -995,22 +1496,24 @@
       const wantListIds = new Set(myWantList.map(c => c.card_id));
       
       container.innerHTML = `<div class="card-grid">${cards.map(card => {
-        const inCollection = collectionIds.has(card.id || card.card_id);
-        const onWantList = wantListIds.has(card.id || card.card_id);
+        const cardId = card.id || card.card_id;
+        const inCollection = collectionIds.has(cardId);
+        const onWantList = wantListIds.has(cardId);
         const imageUrl = card.images?.small || card.card_image || '';
         const price = card.tcgplayer?.prices?.holofoil?.market || 
                      card.tcgplayer?.prices?.normal?.market ||
                      card.tcgplayer?.prices?.reverseHolofoil?.market ||
-                     card.market_price || null;
+                     card.market_price || card.price || null;
         const quantity = card.quantity || 0;
         
         return `
-          <div class="card-item" onclick="openCardModal('${card.id || card.card_id}', ${context === 'collection' || context === 'want-list' ? 'true' : 'false'})">
+          <div class="card-item" onclick="openCardModal('${cardId}', ${context === 'collection' || context === 'want-list' ? 'true' : 'false'})">
             ${quantity > 1 ? `<div class="card-quantity">×${quantity}</div>` : ''}
+            ${inCollection && context !== 'collection' ? `<div class="card-owned-badge">✓ Owned</div>` : ''}
             <img src="${imageUrl}" alt="${card.name || card.card_name}" loading="lazy">
             <div class="card-info">
               <div class="card-name">${card.name || card.card_name}</div>
-              <div class="card-set">${card.set?.name || card.set_name || ''}</div>
+              <div class="card-set">${card.set?.name || card.set_name || ''} ${card.number ? '#' + card.number : ''}</div>
               ${price ? `<div class="card-price">$${price.toFixed(2)}</div>` : ''}
               ${context === 'collection' ? `
                 <div class="card-actions">
@@ -1019,12 +1522,12 @@
               ` : context === 'want-list' ? `
                 <div class="card-actions">
                   <button class="btn btn-success btn-small" onclick="event.stopPropagation(); markAcquired(${card.id})">Got It!</button>
-                  <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); removeFromWantList(${card.id})">Remove</button>
+                  <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); removeFromWantList(${card.id})">✕</button>
                 </div>
               ` : `
                 <div class="card-actions">
-                  ${!inCollection ? `<button class="btn btn-success btn-small" onclick="event.stopPropagation(); quickAdd('${card.id}')">+ Add</button>` : '<span style="font-size:0.75rem;color:var(--success)">✓ Owned</span>'}
-                  ${!onWantList && !inCollection ? `<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); quickWant('${card.id}')">Want</button>` : ''}
+                  ${!inCollection ? `<button class="btn btn-success btn-small" onclick="event.stopPropagation(); quickAdd('${cardId}')">+ Add</button>` : ''}
+                  ${!onWantList && !inCollection ? `<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); quickWant('${cardId}')">Want</button>` : ''}
                 </div>
               `}
             </div>
@@ -1039,11 +1542,9 @@
         let card;
         
         if (isLocal) {
-          // Find in local data first
           card = myCollection.find(c => c.card_id === cardId || c.id == cardId) ||
                  myWantList.find(c => c.card_id === cardId || c.id == cardId);
           if (card) {
-            // Fetch full details from API
             const res = await fetch(`/api/cards/${card.card_id}`);
             const data = await res.json();
             if (data.data) card = { ...data.data, ...card };
@@ -1086,9 +1587,55 @@
         document.getElementById('modalAddCollection').style.display = inCollection ? 'none' : 'inline-flex';
         document.getElementById('modalAddWantList').style.display = (onWantList || inCollection) ? 'none' : 'inline-flex';
         
+        // Load price history
+        loadPriceHistory(card.id || card.card_id);
+        
         document.getElementById('cardModal').classList.add('active');
       } catch (e) {
         showToast('Error loading card details', 'error');
+      }
+    }
+    
+    async function loadPriceHistory(cardId) {
+      try {
+        const res = await fetch(`/api/cards/${cardId}/price-history?days=90`);
+        const data = await res.json();
+        
+        const historyContainer = document.getElementById('modalPriceHistory');
+        
+        if (data.history && data.history.length >= 2) {
+          historyContainer.style.display = 'block';
+          
+          const ctx = document.getElementById('modalPriceChart').getContext('2d');
+          if (modalPriceChart) modalPriceChart.destroy();
+          
+          modalPriceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.history.map(h => h.date),
+              datasets: [{
+                label: 'Price',
+                data: data.history.map(h => h.price),
+                borderColor: '#27ae60',
+                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { ticks: { color: '#a0a0b0' }, grid: { color: '#2a2a4a' } },
+                x: { display: false }
+              }
+            }
+          });
+        } else {
+          historyContainer.style.display = 'none';
+        }
+      } catch (e) {
+        document.getElementById('modalPriceHistory').style.display = 'none';
       }
     }
     
@@ -1097,7 +1644,8 @@
       currentCard = null;
     }
     
-    // Collection
+    // ============ COLLECTION ============
+    
     async function loadCollection() {
       try {
         const res = await fetch('/api/collection');
@@ -1122,7 +1670,7 @@
       }
       
       const totalValue = myCollection.reduce((sum, c) => sum + (c.quantity * (c.market_price || 0)), 0);
-      document.getElementById('collectionTotal').textContent = `Total Value: $${totalValue.toFixed(2)}`;
+      document.getElementById('collectionTotal').textContent = `${myCollection.length} unique cards • $${totalValue.toFixed(2)}`;
       
       renderCardGrid(myCollection, container, 'collection');
     }
@@ -1154,7 +1702,7 @@
         if (data.success) {
           showToast(`Added ${currentCard.name} to collection!`, 'success');
           loadCollection();
-          checkAuth(); // Refresh stats
+          checkAuth();
           closeModal();
         } else {
           showToast(data.error || 'Failed to add card', 'error');
@@ -1211,7 +1759,8 @@
       }
     }
     
-    // Want List
+    // ============ WANT LIST ============
+    
     async function loadWantList() {
       try {
         const res = await fetch('/api/want-list');
@@ -1327,7 +1876,8 @@
       }
     }
     
-    // Sets
+    // ============ SETS ============
+    
     async function loadSets() {
       try {
         const res = await fetch('/api/sets');
@@ -1348,7 +1898,6 @@
     async function renderSets(sets) {
       const container = document.getElementById('setsResults');
       
-      // Get collection by set for completion tracking
       let collectionBySet = {};
       try {
         const res = await fetch('/api/collection/by-set');
@@ -1371,7 +1920,7 @@
             <div class="set-progress">
               <div style="font-size: 0.9rem;">${owned}/${total}</div>
               <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: ${pct}%;"></div>
+                <div class="progress-bar-fill" style="width: ${pct}%; ${pct === 100 ? 'background: var(--success);' : ''}"></div>
               </div>
             </div>
           </div>
@@ -1383,7 +1932,7 @@
       showPage('setDetail');
       
       const container = document.getElementById('setDetailResults');
-      container.innerHTML = '<div class="loading">Loading cards</div>';
+      container.innerHTML = '<div class="loading">Loading set data</div>';
       
       try {
         // Get set info
@@ -1393,28 +1942,212 @@
         
         document.getElementById('setDetailTitle').textContent = set.name;
         
-        // Get cards in set
+        // Get completion data
+        const completionRes = await fetch(`/api/sets/${setId}/completion`);
+        currentSetData = await completionRes.json();
+        
+        // Update stats
+        document.getElementById('setCompletionPercent').textContent = currentSetData.completionPercent + '%';
+        document.getElementById('setProgressFill').style.width = currentSetData.completionPercent + '%';
+        document.getElementById('setOwnedCount').textContent = `${currentSetData.ownedCount}/${currentSetData.totalCards}`;
+        document.getElementById('setOwnedValue').textContent = '$' + currentSetData.ownedValue.toFixed(2);
+        document.getElementById('setCompletionCost').textContent = '$' + currentSetData.completionCost.toFixed(2);
+        document.getElementById('missingCount').textContent = currentSetData.missingCount;
+        document.getElementById('ownedCount').textContent = currentSetData.ownedCount;
+        
+        // Get all cards
         const cardsRes = await fetch(`/api/sets/${setId}/cards?pageSize=250`);
         const cardsData = await cardsRes.json();
+        currentSetData.allCards = cardsData.data || [];
         
-        // Get completion
-        const collectionIds = new Set(myCollection.filter(c => c.set_id === setId).map(c => c.card_id));
-        const owned = collectionIds.size;
-        const total = cardsData.data?.length || 0;
+        // Default to all cards view
+        switchSetTab('all');
         
-        document.getElementById('setCompletionText').textContent = `You own ${owned} of ${total} cards (${Math.round((owned/total)*100)}% complete)`;
-        
-        if (cardsData.data && cardsData.data.length > 0) {
-          renderCardGrid(cardsData.data, container, 'search');
-        } else {
-          container.innerHTML = '<div class="empty-state"><h3>No cards found</h3></div>';
-        }
       } catch (e) {
         container.innerHTML = '<div class="empty-state"><h3>Error loading set</h3></div>';
       }
     }
     
-    // Toast
+    function switchSetTab(tab) {
+      // Update tab buttons
+      document.querySelectorAll('.tabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().startsWith(tab));
+      });
+      
+      const container = document.getElementById('setDetailResults');
+      
+      if (!currentSetData) return;
+      
+      let cards = [];
+      const ownedIds = new Set(currentSetData.ownedCards.map(c => c.id));
+      
+      if (tab === 'all') {
+        cards = currentSetData.allCards;
+      } else if (tab === 'missing') {
+        cards = currentSetData.missingCards;
+      } else if (tab === 'owned') {
+        cards = currentSetData.allCards.filter(c => ownedIds.has(c.id));
+      }
+      
+      if (cards.length > 0) {
+        // Add owned status and format for renderCardGrid
+        const formattedCards = cards.map(card => ({
+          ...card,
+          id: card.id,
+          name: card.name,
+          set: { name: currentSetData.setId },
+          images: { small: card.image || card.images?.small },
+          tcgplayer: { prices: { normal: { market: card.price } } }
+        }));
+        renderCardGrid(formattedCards, container, 'search');
+      } else {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">${tab === 'missing' ? '🎉' : '📭'}</div>
+            <h3>${tab === 'missing' ? 'Set Complete!' : 'No cards'}</h3>
+          </div>
+        `;
+      }
+    }
+    
+    // ============ SHARING ============
+    
+    async function openShareModal() {
+      try {
+        const res = await fetch('/api/share/settings');
+        const settings = await res.json();
+        
+        document.getElementById('sharePublicToggle').checked = settings.isPublic;
+        
+        if (settings.isPublic && settings.shareUrl) {
+          document.getElementById('shareUrlSection').style.display = 'block';
+          document.getElementById('shareUrlInput').value = window.location.origin + settings.shareUrl;
+        } else {
+          document.getElementById('shareUrlSection').style.display = 'none';
+        }
+        
+        document.getElementById('shareModal').classList.add('active');
+      } catch (e) {
+        showToast('Error loading share settings', 'error');
+      }
+    }
+    
+    function closeShareModal() {
+      document.getElementById('shareModal').classList.remove('active');
+    }
+    
+    async function toggleSharePublic() {
+      try {
+        const res = await fetch('/api/share/toggle', { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.isPublic) {
+          document.getElementById('shareUrlSection').style.display = 'block';
+          document.getElementById('shareUrlInput').value = window.location.origin + data.shareUrl;
+          showToast('Collection is now public!', 'success');
+        } else {
+          document.getElementById('shareUrlSection').style.display = 'none';
+          showToast('Collection is now private', 'success');
+        }
+      } catch (e) {
+        showToast('Error updating share settings', 'error');
+      }
+    }
+    
+    function copyShareUrl() {
+      const input = document.getElementById('shareUrlInput');
+      input.select();
+      document.execCommand('copy');
+      showToast('Link copied!', 'success');
+    }
+    
+    function shareToTwitter() {
+      const url = document.getElementById('shareUrlInput').value;
+      const text = `Check out my Pokemon card collection! 🎴`;
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    }
+    
+    function shareToReddit() {
+      const url = document.getElementById('shareUrlInput').value;
+      const title = 'Check out my Pokemon card collection!';
+      window.open(`https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`, '_blank');
+    }
+    
+    // ============ PUBLIC COLLECTION VIEW ============
+    
+    async function loadPublicCollection(token) {
+      document.getElementById('mainNav').style.display = 'none';
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('publicCollectionPage').classList.add('active');
+      
+      try {
+        const res = await fetch(`/api/public/collection/${token}`);
+        
+        if (!res.ok) {
+          document.getElementById('publicCollectionTitle').textContent = 'Collection Not Found';
+          document.getElementById('publicCollectionResults').innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🔒</div>
+              <h3>This collection is private or doesn't exist</h3>
+            </div>
+          `;
+          return;
+        }
+        
+        const data = await res.json();
+        
+        document.getElementById('publicCollectionTitle').textContent = `${data.collector.name}'s Collection`;
+        
+        document.getElementById('publicStats').innerHTML = `
+          <div class="stat-card">
+            <div class="stat-label">Total Value</div>
+            <div class="stat-value">$${data.stats.totalValue.toFixed(2)}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Unique Cards</div>
+            <div class="stat-value">${data.stats.uniqueCards}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Cards</div>
+            <div class="stat-value">${data.stats.totalCards}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Member Since</div>
+            <div class="stat-value">${new Date(data.collector.memberSince).toLocaleDateString()}</div>
+          </div>
+        `;
+        
+        const container = document.getElementById('publicCollectionResults');
+        
+        if (data.collection.length > 0) {
+          container.innerHTML = `<div class="card-grid">${data.collection.map(card => `
+            <div class="card-item">
+              ${card.quantity > 1 ? `<div class="card-quantity">×${card.quantity}</div>` : ''}
+              <img src="${card.card_image || ''}" alt="${card.card_name}" loading="lazy">
+              <div class="card-info">
+                <div class="card-name">${card.card_name}</div>
+                <div class="card-set">${card.set_name || ''}</div>
+                ${card.market_price ? `<div class="card-price">$${card.market_price.toFixed(2)}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}</div>`;
+        } else {
+          container.innerHTML = '<div class="empty-state"><h3>No cards in this collection</h3></div>';
+        }
+        
+      } catch (e) {
+        document.getElementById('publicCollectionResults').innerHTML = '<div class="empty-state"><h3>Error loading collection</h3></div>';
+      }
+    }
+    
+    // ============ EXPORT ============
+    
+    function exportCollection() {
+      window.location.href = '/api/collection/export';
+    }
+    
+    // ============ TOAST ============
+    
     function showToast(message, type = 'success') {
       const toast = document.getElementById('toast');
       const toastMessage = document.getElementById('toastMessage');
