@@ -9,8 +9,12 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Pokemon TCG API base
-const POKEMON_API = 'https://api.tcgdex.net/v2/en';
+// API endpoints for each card game
+const APIS = {
+  pokemon: 'https://api.tcgdex.net/v2/en',
+  mtg: 'https://api.scryfall.com',
+  yugioh: 'https://db.ygoprodeck.com/api/v7'
+};
 
 // Middleware
 app.use(express.json());
@@ -88,8 +92,8 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
-// Helper: Fetch from Pokemon TCG API with caching
-async function fetchPokemonAPI(endpoint, cacheKey, cacheDuration = 3600000) {
+// Helper: Fetch from any API with caching
+async function fetchAPI(url, cacheKey, cacheDuration = 3600000) {
   // Check cache first
   if (cacheKey) {
     const cached = db.prepare('SELECT data, cached_at FROM card_cache WHERE card_id = ?').get(cacheKey);
@@ -101,10 +105,12 @@ async function fetchPokemonAPI(endpoint, cacheKey, cacheDuration = 3600000) {
     }
   }
   
-  const response = await fetch(`${POKEMON_API}${endpoint}`);
+  const response = await fetch(url, {
+    headers: { 'Accept': 'application/json' }
+  });
   
   if (!response.ok) {
-    throw new Error(`TCGdex API error: ${response.status}`);
+    throw new Error(`API error: ${response.status}`);
   }
   
   const data = await response.json();
@@ -116,6 +122,127 @@ async function fetchPokemonAPI(endpoint, cacheKey, cacheDuration = 3600000) {
   }
   
   return data;
+}
+
+// Helper: Fetch from Pokemon TCG API with caching (backwards compat)
+async function fetchPokemonAPI(endpoint, cacheKey, cacheDuration = 3600000) {
+  return fetchAPI(`${APIS.pokemon}${endpoint}`, cacheKey, cacheDuration);
+}
+
+// ============ MTG (SCRYFALL) API HELPERS ============
+
+async function searchMTGCards(query) {
+  const data = await fetchAPI(
+    `${APIS.mtg}/cards/search?q=${encodeURIComponent(query)}`,
+    null, // Don't cache searches
+    0
+  );
+  return data;
+}
+
+async function getMTGCard(id) {
+  return fetchAPI(`${APIS.mtg}/cards/${id}`, `mtg:${id}`, 3600000);
+}
+
+async function getMTGSets() {
+  return fetchAPI(`${APIS.mtg}/sets`, 'mtg:all_sets', 86400000);
+}
+
+function normalizeMTGCard(card) {
+  const prices = card.prices || {};
+  const price = parseFloat(prices.usd) || parseFloat(prices.usd_foil) || null;
+  
+  return {
+    id: card.id,
+    name: card.name,
+    images: {
+      small: card.image_uris?.small || card.card_faces?.[0]?.image_uris?.small,
+      large: card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal
+    },
+    set: { id: card.set, name: card.set_name },
+    rarity: card.rarity,
+    number: card.collector_number,
+    artist: card.artist,
+    prices: {
+      usd: prices.usd,
+      usd_foil: prices.usd_foil,
+      market: price
+    },
+    tcgplayer: card.purchase_uris?.tcgplayer ? { url: card.purchase_uris.tcgplayer } : null,
+    // MTG-specific fields
+    mana_cost: card.mana_cost,
+    type_line: card.type_line,
+    oracle_text: card.oracle_text,
+    power: card.power,
+    toughness: card.toughness,
+    colors: card.colors,
+    category: 'mtg'
+  };
+}
+
+// ============ YU-GI-OH (YGOPRODECK) API HELPERS ============
+
+async function searchYugiohCards(query) {
+  try {
+    const data = await fetchAPI(
+      `${APIS.yugioh}/cardinfo.php?fname=${encodeURIComponent(query)}`,
+      null,
+      0
+    );
+    return data;
+  } catch (e) {
+    // YGOPRODeck returns error for no results
+    return { data: [] };
+  }
+}
+
+async function getYugiohCard(id) {
+  const data = await fetchAPI(`${APIS.yugioh}/cardinfo.php?id=${id}`, `yugioh:${id}`, 3600000);
+  return data.data?.[0] || null;
+}
+
+async function getYugiohSets() {
+  return fetchAPI(`${APIS.yugioh}/cardsets.php`, 'yugioh:all_sets', 86400000);
+}
+
+function normalizeYugiohCard(card) {
+  const prices = card.card_prices?.[0] || {};
+  const price = parseFloat(prices.tcgplayer_price) || parseFloat(prices.cardmarket_price) || null;
+  
+  // Get the first card image
+  const image = card.card_images?.[0];
+  
+  return {
+    id: card.id.toString(),
+    name: card.name,
+    images: {
+      small: image?.image_url_small || image?.image_url,
+      large: image?.image_url
+    },
+    set: card.card_sets?.[0] ? { 
+      id: card.card_sets[0].set_code, 
+      name: card.card_sets[0].set_name 
+    } : { id: '', name: '' },
+    rarity: card.card_sets?.[0]?.set_rarity || card.race,
+    number: card.card_sets?.[0]?.set_code || '',
+    prices: {
+      tcgplayer: prices.tcgplayer_price,
+      cardmarket: prices.cardmarket_price,
+      market: price
+    },
+    tcgplayer: prices.tcgplayer_price ? { 
+      url: `https://www.tcgplayer.com/search/yugioh?q=${encodeURIComponent(card.name)}` 
+    } : null,
+    // Yu-Gi-Oh-specific fields
+    type: card.type,
+    desc: card.desc,
+    atk: card.atk,
+    def: card.def,
+    level: card.level,
+    race: card.race,
+    attribute: card.attribute,
+    category: 'yugioh'
+  };
 }
 
 // ============ GOOGLE OAUTH ROUTES ============
@@ -214,7 +341,227 @@ app.get('/api/me', requireAuth, (req, res) => {
   });
 });
 
-// ============ POKEMON TCG API PROXY ============
+// ============ CATEGORIES API ============
+
+app.get('/api/categories', (req, res) => {
+  const categories = db.prepare('SELECT * FROM categories WHERE active = 1 ORDER BY id').all();
+  res.json(categories);
+});
+
+// ============ MULTI-GAME CARD API ============
+
+// Universal search endpoint - routes to appropriate API based on category
+app.get('/api/:category/cards/search', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { q, page = 1, pageSize = 20 } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Query required' });
+    }
+    
+    let result;
+    
+    switch (category) {
+      case 'pokemon':
+        result = await searchPokemonCards(q, page, pageSize);
+        break;
+      case 'mtg':
+        result = await searchMTGCardsHandler(q, page, pageSize);
+        break;
+      case 'yugioh':
+        result = await searchYugiohCardsHandler(q, page, pageSize);
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid category' });
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error(`Search error (${req.params.category}):`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pokemon search handler
+async function searchPokemonCards(query, page, pageSize) {
+  const endpoint = `/cards?name=${encodeURIComponent(query)}`;
+  const cards = await fetchPokemonAPI(endpoint);
+  
+  const startIdx = (page - 1) * pageSize;
+  const paginatedCards = cards.slice(startIdx, startIdx + parseInt(pageSize));
+  
+  const transformedCards = paginatedCards.map(card => ({
+    id: card.id,
+    name: card.name,
+    images: { 
+      small: card.image ? `${card.image}/low.webp` : null,
+      large: card.image ? `${card.image}/high.webp` : null
+    },
+    set: card.set || { id: card.id.split('-')[0], name: 'Unknown Set' },
+    rarity: card.rarity || 'Unknown',
+    tcgplayer: card.pricing?.tcgplayer || null,
+    cardmarket: card.pricing?.cardmarket || null,
+    category: 'pokemon'
+  }));
+  
+  return { 
+    data: transformedCards,
+    totalCount: cards.length,
+    page: parseInt(page),
+    pageSize: parseInt(pageSize)
+  };
+}
+
+// MTG search handler
+async function searchMTGCardsHandler(query, page, pageSize) {
+  try {
+    const data = await searchMTGCards(query);
+    const cards = data.data || [];
+    
+    const startIdx = (page - 1) * pageSize;
+    const paginatedCards = cards.slice(startIdx, startIdx + parseInt(pageSize));
+    
+    return {
+      data: paginatedCards.map(normalizeMTGCard),
+      totalCount: data.total_cards || cards.length,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize)
+    };
+  } catch (err) {
+    // Scryfall returns 404 for no results
+    if (err.message.includes('404')) {
+      return { data: [], totalCount: 0, page: parseInt(page), pageSize: parseInt(pageSize) };
+    }
+    throw err;
+  }
+}
+
+// Yu-Gi-Oh search handler  
+async function searchYugiohCardsHandler(query, page, pageSize) {
+  const data = await searchYugiohCards(query);
+  const cards = data.data || [];
+  
+  const startIdx = (page - 1) * pageSize;
+  const paginatedCards = cards.slice(startIdx, startIdx + parseInt(pageSize));
+  
+  return {
+    data: paginatedCards.map(normalizeYugiohCard),
+    totalCount: cards.length,
+    page: parseInt(page),
+    pageSize: parseInt(pageSize)
+  };
+}
+
+// Get single card by category
+app.get('/api/:category/cards/:id', async (req, res) => {
+  try {
+    const { category, id } = req.params;
+    let card;
+    
+    switch (category) {
+      case 'pokemon':
+        const pokemonData = await fetchPokemonAPI(`/cards/${id}`, `card:${id}`);
+        card = {
+          id: pokemonData.id,
+          name: pokemonData.name,
+          images: { 
+            small: pokemonData.image ? `${pokemonData.image}/low.webp` : null,
+            large: pokemonData.image ? `${pokemonData.image}/high.webp` : null
+          },
+          set: pokemonData.set || { id: pokemonData.id.split('-')[0], name: 'Unknown Set' },
+          rarity: pokemonData.rarity || 'Unknown',
+          hp: pokemonData.hp,
+          types: pokemonData.types,
+          attacks: pokemonData.attacks,
+          weaknesses: pokemonData.weaknesses,
+          resistances: pokemonData.resistances,
+          retreatCost: pokemonData.retreat,
+          tcgplayer: pokemonData.pricing?.tcgplayer || null,
+          cardmarket: pokemonData.pricing?.cardmarket || null,
+          category: 'pokemon'
+        };
+        break;
+        
+      case 'mtg':
+        const mtgData = await getMTGCard(id);
+        card = normalizeMTGCard(mtgData);
+        break;
+        
+      case 'yugioh':
+        const yugiohData = await getYugiohCard(id);
+        if (!yugiohData) {
+          return res.status(404).json({ error: 'Card not found' });
+        }
+        card = normalizeYugiohCard(yugiohData);
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Invalid category' });
+    }
+    
+    res.json({ data: card });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get sets by category
+app.get('/api/:category/sets', async (req, res) => {
+  try {
+    const { category } = req.params;
+    let sets;
+    
+    switch (category) {
+      case 'pokemon':
+        const pokemonSets = await fetchPokemonAPI('/sets', 'all_sets', 86400000);
+        sets = pokemonSets.map(set => ({
+          id: set.id,
+          name: set.name,
+          images: { logo: set.logo, symbol: set.symbol },
+          total: set.cardCount?.total || 0,
+          category: 'pokemon'
+        })).reverse();
+        break;
+        
+      case 'mtg':
+        const mtgData = await getMTGSets();
+        sets = (mtgData.data || [])
+          .filter(set => set.set_type === 'expansion' || set.set_type === 'core' || set.set_type === 'masters')
+          .slice(0, 100)
+          .map(set => ({
+            id: set.code,
+            name: set.name,
+            images: { logo: set.icon_svg_uri, symbol: set.icon_svg_uri },
+            total: set.card_count || 0,
+            released: set.released_at,
+            category: 'mtg'
+          }));
+        break;
+        
+      case 'yugioh':
+        const yugiohSets = await getYugiohSets();
+        sets = (yugiohSets || []).slice(0, 100).map(set => ({
+          id: set.set_code,
+          name: set.set_name,
+          images: { logo: null, symbol: null },
+          total: set.num_of_cards || 0,
+          released: set.tcg_date,
+          category: 'yugioh'
+        }));
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Invalid category' });
+    }
+    
+    res.json({ data: sets });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ POKEMON TCG API PROXY (Legacy endpoints for backwards compatibility) ============
 
 app.get('/api/cards/search', async (req, res) => {
   try {
@@ -378,15 +725,15 @@ app.get('/api/collection', requireAuth, (req, res) => {
 
 app.post('/api/collection', requireAuth, (req, res) => {
   try {
-    const { cardId, cardName, cardImage, setId, setName, rarity, quantity = 1, condition = 'Near Mint', purchasePrice, marketPrice } = req.body;
+    const { cardId, cardName, cardImage, setId, setName, rarity, quantity = 1, condition = 'Near Mint', purchasePrice, marketPrice, category = 'pokemon' } = req.body;
     
     if (!cardId || !cardName) {
       return res.status(400).json({ error: 'Card ID and name required' });
     }
     
-    // Check if card already exists in collection with same condition
-    const existing = db.prepare('SELECT * FROM collection WHERE user_id = ? AND card_id = ? AND condition = ?')
-      .get(req.session.userId, cardId, condition);
+    // Check if card already exists in collection with same condition and category
+    const existing = db.prepare('SELECT * FROM collection WHERE user_id = ? AND card_id = ? AND condition = ? AND category = ?')
+      .get(req.session.userId, cardId, condition, category);
     
     if (existing) {
       // Update quantity
@@ -397,9 +744,9 @@ app.post('/api/collection', requireAuth, (req, res) => {
     }
     
     const result = db.prepare(`
-      INSERT INTO collection (user_id, card_id, card_name, card_image, set_id, set_name, rarity, quantity, condition, purchase_price, market_price)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.session.userId, cardId, cardName, cardImage, setId, setName, rarity, quantity, condition, purchasePrice, marketPrice);
+      INSERT INTO collection (user_id, card_id, card_name, card_image, set_id, set_name, rarity, quantity, condition, purchase_price, market_price, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(req.session.userId, cardId, cardName, cardImage, setId, setName, rarity, quantity, condition, purchasePrice, marketPrice, category);
     
     const card = db.prepare('SELECT * FROM collection WHERE id = ?').get(result.lastInsertRowid);
     res.json({ success: true, card, action: 'added' });
@@ -873,32 +1220,32 @@ app.get('/api/want-list', requireAuth, (req, res) => {
 
 app.post('/api/want-list', requireAuth, (req, res) => {
   try {
-    const { cardId, cardName, cardImage, setId, setName, rarity, maxPrice, priority = 1, notes } = req.body;
+    const { cardId, cardName, cardImage, setId, setName, rarity, maxPrice, priority = 1, notes, category = 'pokemon' } = req.body;
     
     if (!cardId || !cardName) {
       return res.status(400).json({ error: 'Card ID and name required' });
     }
     
-    // Check if already on want list
-    const existing = db.prepare('SELECT * FROM want_list WHERE user_id = ? AND card_id = ?')
-      .get(req.session.userId, cardId);
+    // Check if already on want list (same category)
+    const existing = db.prepare('SELECT * FROM want_list WHERE user_id = ? AND card_id = ? AND category = ?')
+      .get(req.session.userId, cardId, category);
     
     if (existing) {
       return res.status(400).json({ error: 'Card already on want list' });
     }
     
-    // Check if already in collection
-    const inCollection = db.prepare('SELECT * FROM collection WHERE user_id = ? AND card_id = ?')
-      .get(req.session.userId, cardId);
+    // Check if already in collection (same category)
+    const inCollection = db.prepare('SELECT * FROM collection WHERE user_id = ? AND card_id = ? AND category = ?')
+      .get(req.session.userId, cardId, category);
     
     if (inCollection) {
       return res.status(400).json({ error: 'Card already in your collection' });
     }
     
     const result = db.prepare(`
-      INSERT INTO want_list (user_id, card_id, card_name, card_image, set_id, set_name, rarity, max_price, priority, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.session.userId, cardId, cardName, cardImage, setId, setName, rarity, maxPrice, priority, notes);
+      INSERT INTO want_list (user_id, card_id, card_name, card_image, set_id, set_name, rarity, max_price, priority, notes, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(req.session.userId, cardId, cardName, cardImage, setId, setName, rarity, maxPrice, priority, notes, category);
     
     const card = db.prepare('SELECT * FROM want_list WHERE id = ?').get(result.lastInsertRowid);
     res.json({ success: true, card });
@@ -1557,33 +1904,47 @@ app.post('/api/seed', async (req, res) => {
     
     // Add some sample collection cards (using real Pokemon TCG API card IDs)
     const sampleCollection = [
-      { cardId: 'base1-4', cardName: 'Charizard', cardImage: 'https://images.pokemontcg.io/base1/4_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Near Mint', marketPrice: 420.00 },
-      { cardId: 'base1-2', cardName: 'Blastoise', cardImage: 'https://images.pokemontcg.io/base1/2_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Near Mint', marketPrice: 85.00 },
-      { cardId: 'base1-15', cardName: 'Venusaur', cardImage: 'https://images.pokemontcg.io/base1/15_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Lightly Played', marketPrice: 65.00 },
-      { cardId: 'base1-58', cardName: 'Pikachu', cardImage: 'https://images.pokemontcg.io/base1/58_hires.png', setId: 'base1', setName: 'Base', rarity: 'Common', quantity: 4, condition: 'Near Mint', marketPrice: 15.00 },
-      { cardId: 'swsh9-166', cardName: 'Charizard VSTAR', cardImage: 'https://images.pokemontcg.io/swsh9/166_hires.png', setId: 'swsh9', setName: 'Brilliant Stars', rarity: 'Rare Holo VSTAR', quantity: 2, condition: 'Near Mint', marketPrice: 35.00 },
-      { cardId: 'sv3pt5-197', cardName: 'Umbreon ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/197_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', quantity: 1, condition: 'Near Mint', marketPrice: 145.00 },
+      // Pokemon cards
+      { cardId: 'base1-4', cardName: 'Charizard', cardImage: 'https://images.pokemontcg.io/base1/4_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Near Mint', marketPrice: 420.00, category: 'pokemon' },
+      { cardId: 'base1-2', cardName: 'Blastoise', cardImage: 'https://images.pokemontcg.io/base1/2_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Near Mint', marketPrice: 85.00, category: 'pokemon' },
+      { cardId: 'base1-15', cardName: 'Venusaur', cardImage: 'https://images.pokemontcg.io/base1/15_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', quantity: 1, condition: 'Lightly Played', marketPrice: 65.00, category: 'pokemon' },
+      { cardId: 'base1-58', cardName: 'Pikachu', cardImage: 'https://images.pokemontcg.io/base1/58_hires.png', setId: 'base1', setName: 'Base', rarity: 'Common', quantity: 4, condition: 'Near Mint', marketPrice: 15.00, category: 'pokemon' },
+      { cardId: 'swsh9-166', cardName: 'Charizard VSTAR', cardImage: 'https://images.pokemontcg.io/swsh9/166_hires.png', setId: 'swsh9', setName: 'Brilliant Stars', rarity: 'Rare Holo VSTAR', quantity: 2, condition: 'Near Mint', marketPrice: 35.00, category: 'pokemon' },
+      { cardId: 'sv3pt5-197', cardName: 'Umbreon ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/197_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', quantity: 1, condition: 'Near Mint', marketPrice: 145.00, category: 'pokemon' },
+      // MTG cards (Scryfall IDs)
+      { cardId: 'f8f3fdc5-f4cc-40f8-af5c-d4c757e54c27', cardName: 'Black Lotus', cardImage: 'https://cards.scryfall.io/normal/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7c20.jpg', setId: 'lea', setName: 'Alpha', rarity: 'rare', quantity: 1, condition: 'Near Mint', marketPrice: 50000.00, category: 'mtg' },
+      { cardId: '0c4b64a7-4f88-4c58-91e6-6ce3a95a026c', cardName: 'Lightning Bolt', cardImage: 'https://cards.scryfall.io/normal/front/f/2/f29ba16f-c8fb-42fe-aabf-87089cb214a7.jpg', setId: 'lea', setName: 'Alpha', rarity: 'common', quantity: 4, condition: 'Near Mint', marketPrice: 800.00, category: 'mtg' },
+      { cardId: 'ce4c6535-afea-4704-b35c-badeb04c4f4c', cardName: 'Counterspell', cardImage: 'https://cards.scryfall.io/normal/front/1/9/1920dae4-fb92-4f19-ae4b-eb3276b8dac7.jpg', setId: 'lea', setName: 'Alpha', rarity: 'uncommon', quantity: 2, condition: 'Near Mint', marketPrice: 350.00, category: 'mtg' },
+      // Yu-Gi-Oh cards
+      { cardId: '46986414', cardName: 'Dark Magician', cardImage: 'https://images.ygoprodeck.com/images/cards/46986414.jpg', setId: 'LOB', setName: 'Legend of Blue Eyes', rarity: 'Ultra Rare', quantity: 1, condition: 'Near Mint', marketPrice: 45.00, category: 'yugioh' },
+      { cardId: '89631139', cardName: 'Blue-Eyes White Dragon', cardImage: 'https://images.ygoprodeck.com/images/cards/89631139.jpg', setId: 'LOB', setName: 'Legend of Blue Eyes', rarity: 'Ultra Rare', quantity: 2, condition: 'Near Mint', marketPrice: 120.00, category: 'yugioh' },
+      { cardId: '74677422', cardName: 'Red-Eyes Black Dragon', cardImage: 'https://images.ygoprodeck.com/images/cards/74677422.jpg', setId: 'LOB', setName: 'Legend of Blue Eyes', rarity: 'Ultra Rare', quantity: 1, condition: 'Near Mint', marketPrice: 55.00, category: 'yugioh' },
     ];
     
     for (const card of sampleCollection) {
       db.prepare(`
-        INSERT INTO collection (user_id, card_id, card_name, card_image, set_id, set_name, rarity, quantity, condition, market_price)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(userId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.quantity, card.condition, card.marketPrice);
+        INSERT INTO collection (user_id, card_id, card_name, card_image, set_id, set_name, rarity, quantity, condition, market_price, category)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.quantity, card.condition, card.marketPrice, card.category);
     }
     
-    // Add some want list items
+    // Add some want list items (including MTG and Yu-Gi-Oh)
     const sampleWantList = [
-      { cardId: 'base1-1', cardName: 'Alakazam', cardImage: 'https://images.pokemontcg.io/base1/1_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 50.00, priority: 2 },
-      { cardId: 'base1-3', cardName: 'Chansey', cardImage: 'https://images.pokemontcg.io/base1/3_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 30.00, priority: 1 },
-      { cardId: 'sv3pt5-199', cardName: 'Mew ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/199_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', maxPrice: 200.00, priority: 3 },
+      // Pokemon
+      { cardId: 'base1-1', cardName: 'Alakazam', cardImage: 'https://images.pokemontcg.io/base1/1_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 50.00, priority: 2, category: 'pokemon' },
+      { cardId: 'base1-3', cardName: 'Chansey', cardImage: 'https://images.pokemontcg.io/base1/3_hires.png', setId: 'base1', setName: 'Base', rarity: 'Rare Holo', maxPrice: 30.00, priority: 1, category: 'pokemon' },
+      { cardId: 'sv3pt5-199', cardName: 'Mew ex', cardImage: 'https://images.pokemontcg.io/sv3pt5/199_hires.png', setId: 'sv3pt5', setName: '151', rarity: 'Special Art Rare', maxPrice: 200.00, priority: 3, category: 'pokemon' },
+      // MTG
+      { cardId: 'c44c098e-b44f-4b35-b0a2-e43a9e3e0e3c', cardName: 'Mox Pearl', cardImage: 'https://cards.scryfall.io/normal/front/e/d/ed0ba7c9-dc6b-4e01-b65e-c7e61a2ab91c.jpg', setId: 'lea', setName: 'Alpha', rarity: 'rare', maxPrice: 10000.00, priority: 3, category: 'mtg' },
+      // Yu-Gi-Oh
+      { cardId: '70781052', cardName: 'Exodia the Forbidden One', cardImage: 'https://images.ygoprodeck.com/images/cards/70781052.jpg', setId: 'LOB', setName: 'Legend of Blue Eyes', rarity: 'Ultra Rare', maxPrice: 150.00, priority: 2, category: 'yugioh' },
     ];
     
     for (const card of sampleWantList) {
       db.prepare(`
-        INSERT INTO want_list (user_id, card_id, card_name, card_image, set_id, set_name, rarity, max_price, priority)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(userId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.maxPrice, card.priority);
+        INSERT INTO want_list (user_id, card_id, card_name, card_image, set_id, set_name, rarity, max_price, priority, category)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, card.cardId, card.cardName, card.cardImage, card.setId, card.setName, card.rarity, card.maxPrice, card.priority, card.category);
     }
     
     // Create additional demo users for trade matching

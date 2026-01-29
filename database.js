@@ -19,6 +19,18 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Categories for multi-collectible support
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    api_source TEXT,
+    color TEXT DEFAULT '#ff6b35',
+    active INTEGER DEFAULT 1
+  );
+
   -- User's card collection
   CREATE TABLE IF NOT EXISTS collection (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,9 +45,10 @@ db.exec(`
     condition TEXT DEFAULT 'Near Mint',
     purchase_price REAL,
     market_price REAL,
+    category TEXT DEFAULT 'pokemon',
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
-    UNIQUE(user_id, card_id, condition)
+    UNIQUE(user_id, card_id, condition, category)
   );
 
   -- User's want list
@@ -51,9 +64,10 @@ db.exec(`
     max_price REAL,
     priority INTEGER DEFAULT 1,
     notes TEXT,
+    category TEXT DEFAULT 'pokemon',
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
-    UNIQUE(user_id, card_id)
+    UNIQUE(user_id, card_id, category)
   );
 
   -- Price history for tracking trends
@@ -189,6 +203,34 @@ try {
   }
   if (usersWithoutToken.length > 0) {
     console.log(`Migration: Generated share tokens for ${usersWithoutToken.length} users`);
+  }
+  
+  // Add category column to collection if missing
+  const collectionCols = db.prepare("PRAGMA table_info(collection)").all();
+  const collectionColNames = collectionCols.map(c => c.name);
+  if (!collectionColNames.includes('category')) {
+    db.exec("ALTER TABLE collection ADD COLUMN category TEXT DEFAULT 'pokemon'");
+    console.log('Migration: Added category column to collection table');
+  }
+  
+  // Add category column to want_list if missing
+  const wantListCols = db.prepare("PRAGMA table_info(want_list)").all();
+  const wantListColNames = wantListCols.map(c => c.name);
+  if (!wantListColNames.includes('category')) {
+    db.exec("ALTER TABLE want_list ADD COLUMN category TEXT DEFAULT 'pokemon'");
+    console.log('Migration: Added category column to want_list table');
+  }
+  
+  // Seed default categories
+  const existingCategories = db.prepare("SELECT COUNT(*) as count FROM categories").get();
+  if (existingCategories.count === 0) {
+    db.prepare(`
+      INSERT INTO categories (slug, name, description, icon, api_source, color) VALUES
+      ('pokemon', 'Pokémon TCG', 'Pokémon Trading Card Game', '⚡', 'tcgdex', '#ffcb05'),
+      ('mtg', 'Magic: The Gathering', 'The original trading card game', '🔮', 'scryfall', '#9b59b6'),
+      ('yugioh', 'Yu-Gi-Oh!', 'Yu-Gi-Oh! Trading Card Game', '🎴', 'ygoprodeck', '#e74c3c')
+    `).run();
+    console.log('Migration: Seeded default categories');
   }
 } catch (err) {
   console.error('Migration error:', err.message);

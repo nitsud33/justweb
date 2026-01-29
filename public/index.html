@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pokemon Card Finder - Track Your Collection</title>
-  <meta name="description" content="Track your Pokemon card collection, monitor prices, find missing cards to complete sets, and share your collection with friends.">
+  <title>Card Collector Pro - Track Pokemon, MTG & Yu-Gi-Oh Cards</title>
+  <meta name="description" content="Track your trading card collection across Pokemon, Magic: The Gathering, and Yu-Gi-Oh! Monitor prices, find trades, and complete your sets.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -1028,13 +1028,121 @@
     .trade-status.completed { background: var(--success); color: white; }
     .trade-status.rejected { background: var(--danger); color: white; }
     .trade-status.cancelled { background: var(--text-muted); color: black; }
+
+    /* Category Switcher */
+    .category-switcher {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--bg-input);
+      padding: 0.25rem;
+      border-radius: 12px;
+    }
+    
+    .category-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    
+    .category-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .category-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .category-btn.active[data-category="pokemon"] {
+      background: #ffcb05;
+      color: #1a1a2e;
+    }
+    
+    .category-btn.active[data-category="mtg"] {
+      background: #9b59b6;
+      color: white;
+    }
+    
+    .category-btn.active[data-category="yugioh"] {
+      background: #e74c3c;
+      color: white;
+    }
+    
+    .category-btn span {
+      font-size: 1.1rem;
+    }
+    
+    /* Category badges on cards */
+    .card-category-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .card-category-badge.pokemon { background: #ffcb05; color: #1a1a2e; }
+    .card-category-badge.mtg { background: #9b59b6; color: white; }
+    .card-category-badge.yugioh { background: #e74c3c; color: white; }
+
+    /* MTG-specific card info */
+    .mtg-mana-cost {
+      display: inline-flex;
+      gap: 2px;
+      margin-left: 0.5rem;
+    }
+    
+    .mtg-type-line {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Yu-Gi-Oh-specific card info */
+    .yugioh-stats {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
+    .yugioh-stats span {
+      color: var(--warning);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="logo" onclick="showPage('dashboard')">
       <span>🎴</span>
-      Pokemon Card Finder
+      Card Collector Pro
+    </div>
+    
+    <!-- Category Switcher -->
+    <div id="categorySwitcher" class="category-switcher" style="display: none;">
+      <button class="category-btn active" data-category="pokemon" onclick="switchCategory('pokemon')">
+        <span>⚡</span> Pokémon
+      </button>
+      <button class="category-btn" data-category="mtg" onclick="switchCategory('mtg')">
+        <span>🔮</span> MTG
+      </button>
+      <button class="category-btn" data-category="yugioh" onclick="switchCategory('yugioh')">
+        <span>🎴</span> Yu-Gi-Oh
+      </button>
     </div>
     
     <nav id="mainNav" style="display: none;">
@@ -1161,16 +1269,19 @@
     <div class="page" id="searchPage">
       <div class="search-section">
         <div class="search-bar">
-          <input type="text" id="searchInput" placeholder="Search for Pokemon cards (e.g., Charizard, Pikachu)...">
+          <input type="text" id="searchInput" placeholder="Search for cards...">
           <button class="btn btn-primary" onclick="searchCards()">🔍 Search</button>
+        </div>
+        <div id="searchPlaceholderText" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+          Searching in: <strong id="searchCategoryName">Pokémon TCG</strong>
         </div>
       </div>
       
       <div id="searchResults">
         <div class="empty-state">
           <div class="icon">🔎</div>
-          <h3>Search for Pokemon Cards</h3>
-          <p>Enter a card name to find it in the Pokemon TCG database</p>
+          <h3>Search for Cards</h3>
+          <p id="searchEmptyText">Enter a card name to find it in the database</p>
         </div>
       </div>
     </div>
@@ -1270,7 +1381,7 @@
     <!-- Sets Page -->
     <div class="page" id="setsPage">
       <div class="page-header">
-        <h1>📚 Pokemon TCG Sets</h1>
+        <h1 id="setsPageTitle">📚 Card Sets</h1>
       </div>
       
       <div class="search-bar" style="margin-bottom: 1.5rem;">
@@ -1513,6 +1624,21 @@
     let portfolioChart = null;
     let setChart = null;
     let modalPriceChart = null;
+    let currentCategory = 'pokemon';
+    let categories = [];
+    
+    // Category display names
+    const CATEGORY_NAMES = {
+      pokemon: 'Pokémon TCG',
+      mtg: 'Magic: The Gathering',
+      yugioh: 'Yu-Gi-Oh!'
+    };
+    
+    const CATEGORY_ICONS = {
+      pokemon: '⚡',
+      mtg: '🔮',
+      yugioh: '🎴'
+    };
     
     // Init
     document.addEventListener('DOMContentLoaded', () => {
@@ -1627,14 +1753,63 @@
       document.getElementById('authPage').classList.remove('active');
       document.getElementById('mainNav').style.display = 'flex';
       document.getElementById('userInfo').style.display = 'flex';
+      document.getElementById('categorySwitcher').style.display = 'flex';
       document.getElementById('userName').textContent = data.user.name;
       
       updateStats(data.stats);
+      loadCategories();
       showPage('dashboard');
       loadCollection();
       loadWantList();
       loadSets();
       loadPortfolioStats();
+    }
+    
+    // Load available categories from API
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        categories = await res.json();
+      } catch (e) {
+        console.error('Error loading categories:', e);
+      }
+    }
+    
+    // Switch between card categories (Pokemon, MTG, Yu-Gi-Oh)
+    function switchCategory(category) {
+      currentCategory = category;
+      
+      // Update category buttons
+      document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.category === category);
+      });
+      
+      // Update search placeholder
+      document.getElementById('searchCategoryName').textContent = CATEGORY_NAMES[category] || category;
+      
+      // Update search input placeholder
+      const placeholders = {
+        pokemon: 'Search for Pokemon cards (e.g., Charizard, Pikachu)...',
+        mtg: 'Search for Magic cards (e.g., Black Lotus, Lightning Bolt)...',
+        yugioh: 'Search for Yu-Gi-Oh cards (e.g., Blue-Eyes, Dark Magician)...'
+      };
+      document.getElementById('searchInput').placeholder = placeholders[category] || 'Search for cards...';
+      
+      // Clear search results
+      document.getElementById('searchResults').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">${CATEGORY_ICONS[category] || '🔎'}</div>
+          <h3>Search ${CATEGORY_NAMES[category] || category} Cards</h3>
+          <p>Enter a card name to search</p>
+        </div>
+      `;
+      
+      // Reload sets for new category
+      loadSets();
+      
+      // Re-render collection and want list filtered by category
+      renderCollection();
+      renderWantList();
     }
     
     function updateStats(stats) {
@@ -1819,7 +1994,8 @@
       resultsDiv.innerHTML = '<div class="loading">Searching</div>';
       
       try {
-        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(query)}&pageSize=40`);
+        // Use category-specific endpoint
+        const res = await fetch(`/api/${currentCategory}/cards/search?q=${encodeURIComponent(query)}&pageSize=40`);
         const data = await res.json();
         
         if (data.data && data.data.length > 0) {
@@ -1827,14 +2003,15 @@
         } else {
           resultsDiv.innerHTML = `
             <div class="empty-state">
-              <div class="icon">🔎</div>
+              <div class="icon">${CATEGORY_ICONS[currentCategory] || '🔎'}</div>
               <h3>No Cards Found</h3>
-              <p>Try a different search term</p>
+              <p>Try a different search term in ${CATEGORY_NAMES[currentCategory]}</p>
             </div>
           `;
         }
       } catch (e) {
-        resultsDiv.innerHTML = '<div class="empty-state"><h3>Error searching cards</h3></div>';
+        console.error('Search error:', e);
+        resultsDiv.innerHTML = '<div class="empty-state"><h3>Error searching cards</h3><p>' + e.message + '</p></div>';
       }
     }
     
@@ -1845,24 +2022,37 @@
       
       container.innerHTML = `<div class="card-grid">${cards.map(card => {
         const cardId = card.id || card.card_id;
+        const category = card.category || currentCategory;
         const inCollection = collectionIds.has(cardId);
         const onWantList = wantListIds.has(cardId);
         const imageUrl = card.images?.small || card.card_image || '';
-        const price = card.tcgplayer?.prices?.holofoil?.market || 
+        const price = card.prices?.market || 
+                     card.tcgplayer?.prices?.holofoil?.market || 
                      card.tcgplayer?.prices?.normal?.market ||
                      card.tcgplayer?.prices?.reverseHolofoil?.market ||
                      card.market_price || card.price || null;
         const quantity = card.quantity || 0;
         
+        // Show category badge in collection/want-list views
+        const showCategoryBadge = context === 'collection' || context === 'want-list';
+        
         return `
-          <div class="card-item" onclick="openCardModal('${cardId}', ${context === 'collection' || context === 'want-list' ? 'true' : 'false'})">
+          <div class="card-item" onclick="openCardModal('${cardId}', ${context === 'collection' || context === 'want-list' ? 'true' : 'false'}, '${category}')">
             ${quantity > 1 ? `<div class="card-quantity">×${quantity}</div>` : ''}
+            ${showCategoryBadge ? `<div class="card-category-badge ${category}">${CATEGORY_ICONS[category] || '🎴'}</div>` : ''}
             ${inCollection && context !== 'collection' ? `<div class="card-owned-badge">✓ Owned</div>` : ''}
-            <img src="${imageUrl}" alt="${card.name || card.card_name}" loading="lazy">
+            <img src="${imageUrl}" alt="${card.name || card.card_name}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22280%22><rect fill=%22%231a1a2e%22 width=%22200%22 height=%22280%22/><text fill=%22%23666%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22>No Image</text></svg>'">
             <div class="card-info">
               <div class="card-name">${card.name || card.card_name}</div>
               <div class="card-set">${card.set?.name || card.set_name || ''} ${card.number ? '#' + card.number : ''}</div>
-              ${price ? `<div class="card-price">$${price.toFixed(2)}</div>` : ''}
+              ${category === 'mtg' && card.type_line ? `<div class="mtg-type-line">${card.type_line}</div>` : ''}
+              ${category === 'yugioh' && (card.atk !== undefined || card.def !== undefined) ? `
+                <div class="yugioh-stats">
+                  ${card.atk !== undefined ? `ATK: <span>${card.atk}</span>` : ''}
+                  ${card.def !== undefined ? `DEF: <span>${card.def}</span>` : ''}
+                </div>
+              ` : ''}
+              ${price ? `<div class="card-price">$${typeof price === 'number' ? price.toFixed(2) : price}</div>` : ''}
               ${context === 'collection' ? `
                 <div class="card-actions">
                   <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); removeFromCollection(${card.id})">Remove</button>
@@ -1874,8 +2064,8 @@
                 </div>
               ` : `
                 <div class="card-actions">
-                  ${!inCollection ? `<button class="btn btn-success btn-small" onclick="event.stopPropagation(); quickAdd('${cardId}')">+ Add</button>` : ''}
-                  ${!onWantList && !inCollection ? `<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); quickWant('${cardId}')">Want</button>` : ''}
+                  ${!inCollection ? `<button class="btn btn-success btn-small" onclick="event.stopPropagation(); quickAdd('${cardId}', '${category}')">+ Add</button>` : ''}
+                  ${!onWantList && !inCollection ? `<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); quickWant('${cardId}', '${category}')">Want</button>` : ''}
                 </div>
               `}
             </div>
@@ -1885,26 +2075,30 @@
     }
     
     // Modal
-    async function openCardModal(cardId, isLocal = false) {
+    async function openCardModal(cardId, isLocal = false, category = null) {
       try {
         let card;
+        const cardCategory = category || currentCategory;
         
         if (isLocal) {
           card = myCollection.find(c => c.card_id === cardId || c.id == cardId) ||
                  myWantList.find(c => c.card_id === cardId || c.id == cardId);
           if (card) {
-            const res = await fetch(`/api/cards/${card.card_id}`);
+            const cat = card.category || cardCategory;
+            const res = await fetch(`/api/${cat}/cards/${card.card_id}`);
             const data = await res.json();
             if (data.data) card = { ...data.data, ...card };
           }
         } else {
-          const res = await fetch(`/api/cards/${cardId}`);
+          const res = await fetch(`/api/${cardCategory}/cards/${cardId}`);
           const data = await res.json();
           card = data.data;
         }
         
         if (!card) return;
         
+        // Ensure category is set
+        card.category = card.category || cardCategory;
         currentCard = card;
         
         document.getElementById('modalCardName').textContent = card.name || card.card_name;
@@ -2026,7 +2220,8 @@
     async function addToCollection() {
       if (!currentCard) return;
       
-      const price = currentCard.tcgplayer?.prices?.holofoil?.market || 
+      const price = currentCard.prices?.market ||
+                   currentCard.tcgplayer?.prices?.holofoil?.market || 
                    currentCard.tcgplayer?.prices?.normal?.market ||
                    currentCard.tcgplayer?.prices?.reverseHolofoil?.market || null;
       
@@ -2037,11 +2232,12 @@
           body: JSON.stringify({
             cardId: currentCard.id,
             cardName: currentCard.name,
-            cardImage: currentCard.images?.small,
+            cardImage: currentCard.images?.small || currentCard.images?.large,
             setId: currentCard.set?.id,
             setName: currentCard.set?.name,
             rarity: currentCard.rarity,
-            marketPrice: price
+            marketPrice: price,
+            category: currentCard.category || currentCategory
           })
         });
         
@@ -2060,13 +2256,15 @@
       }
     }
     
-    async function quickAdd(cardId) {
+    async function quickAdd(cardId, category = null) {
+      const cardCategory = category || currentCategory;
       try {
-        const res = await fetch(`/api/cards/${cardId}`);
+        const res = await fetch(`/api/${cardCategory}/cards/${cardId}`);
         const data = await res.json();
         const card = data.data;
         
-        const price = card.tcgplayer?.prices?.holofoil?.market || 
+        const price = card.prices?.market ||
+                     card.tcgplayer?.prices?.holofoil?.market || 
                      card.tcgplayer?.prices?.normal?.market ||
                      card.tcgplayer?.prices?.reverseHolofoil?.market || null;
         
@@ -2076,11 +2274,12 @@
           body: JSON.stringify({
             cardId: card.id,
             cardName: card.name,
-            cardImage: card.images?.small,
+            cardImage: card.images?.small || card.images?.large,
             setId: card.set?.id,
             setName: card.set?.name,
             rarity: card.rarity,
-            marketPrice: price
+            marketPrice: price,
+            category: cardCategory
           })
         });
         
@@ -2144,10 +2343,11 @@
           body: JSON.stringify({
             cardId: currentCard.id,
             cardName: currentCard.name,
-            cardImage: currentCard.images?.small,
+            cardImage: currentCard.images?.small || currentCard.images?.large,
             setId: currentCard.set?.id,
             setName: currentCard.set?.name,
-            rarity: currentCard.rarity
+            rarity: currentCard.rarity,
+            category: currentCard.category || currentCategory
           })
         });
         
@@ -2166,9 +2366,10 @@
       }
     }
     
-    async function quickWant(cardId) {
+    async function quickWant(cardId, category = null) {
+      const cardCategory = category || currentCategory;
       try {
-        const res = await fetch(`/api/cards/${cardId}`);
+        const res = await fetch(`/api/${cardCategory}/cards/${cardId}`);
         const data = await res.json();
         const card = data.data;
         
@@ -2178,10 +2379,11 @@
           body: JSON.stringify({
             cardId: card.id,
             cardName: card.name,
-            cardImage: card.images?.small,
+            cardImage: card.images?.small || card.images?.large,
             setId: card.set?.id,
             setName: card.set?.name,
-            rarity: card.rarity
+            rarity: card.rarity,
+            category: cardCategory
           })
         });
         
@@ -2227,13 +2429,23 @@
     // ============ SETS ============
     
     async function loadSets() {
+      // Update page title for current category
+      document.getElementById('setsPageTitle').innerHTML = `📚 ${CATEGORY_NAMES[currentCategory] || 'Card'} Sets`;
+      
       try {
-        const res = await fetch('/api/sets');
+        const res = await fetch(`/api/${currentCategory}/sets`);
         const data = await res.json();
         allSets = data.data || [];
         renderSets(allSets);
       } catch (e) {
-        document.getElementById('setsResults').innerHTML = '<div class="empty-state"><h3>Error loading sets</h3></div>';
+        console.error('Error loading sets:', e);
+        document.getElementById('setsResults').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">${CATEGORY_ICONS[currentCategory] || '📚'}</div>
+            <h3>Error loading ${CATEGORY_NAMES[currentCategory]} sets</h3>
+            <p>${e.message || 'Please try again later'}</p>
+          </div>
+        `;
       }
     }
     
