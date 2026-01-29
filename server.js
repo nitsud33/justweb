@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Pokemon TCG API base
-const POKEMON_API = 'https://api.pokemontcg.io/v2';
+const POKEMON_API = 'https://api.tcgdex.net/v2/en';
 
 // Middleware
 app.use(express.json());
@@ -101,14 +101,10 @@ async function fetchPokemonAPI(endpoint, cacheKey, cacheDuration = 3600000) {
     }
   }
   
-  const response = await fetch(`${POKEMON_API}${endpoint}`, {
-    headers: {
-      'X-Api-Key': process.env.POKEMON_TCG_API_KEY || ''
-    }
-  });
+  const response = await fetch(`${POKEMON_API}${endpoint}`);
   
   if (!response.ok) {
-    throw new Error(`Pokemon API error: ${response.status}`);
+    throw new Error(`TCGdex API error: ${response.status}`);
   }
   
   const data = await response.json();
@@ -227,12 +223,34 @@ app.get('/api/cards/search', async (req, res) => {
       return res.status(400).json({ error: 'Query required' });
     }
     
-    // Build search query - search by name
-    const searchQuery = `name:"*${q}*"`;
-    const endpoint = `/cards?q=${encodeURIComponent(searchQuery)}&page=${page}&pageSize=${pageSize}&orderBy=-set.releaseDate`;
+    // TCGdex search by name
+    const endpoint = `/cards?name=${encodeURIComponent(q)}`;
+    const cards = await fetchPokemonAPI(endpoint);
     
-    const data = await fetchPokemonAPI(endpoint);
-    res.json(data);
+    // Transform to match expected format and paginate
+    const startIdx = (page - 1) * pageSize;
+    const paginatedCards = cards.slice(startIdx, startIdx + parseInt(pageSize));
+    
+    // Transform TCGdex format to match our frontend expectations
+    const transformedCards = paginatedCards.map(card => ({
+      id: card.id,
+      name: card.name,
+      images: { 
+        small: card.image ? `${card.image}/low.webp` : null,
+        large: card.image ? `${card.image}/high.webp` : null
+      },
+      set: card.set || { id: card.id.split('-')[0], name: 'Unknown Set' },
+      rarity: card.rarity || 'Unknown',
+      tcgplayer: card.pricing?.tcgplayer || null,
+      cardmarket: card.pricing?.cardmarket || null
+    }));
+    
+    res.json({ 
+      data: transformedCards,
+      totalCount: cards.length,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -240,8 +258,31 @@ app.get('/api/cards/search', async (req, res) => {
 
 app.get('/api/cards/:id', async (req, res) => {
   try {
-    const data = await fetchPokemonAPI(`/cards/${req.params.id}`, `card:${req.params.id}`);
-    res.json(data);
+    const card = await fetchPokemonAPI(`/cards/${req.params.id}`, `card:${req.params.id}`);
+    
+    // Transform TCGdex format to match frontend expectations
+    const transformed = {
+      data: {
+        id: card.id,
+        name: card.name,
+        images: { 
+          small: card.image ? `${card.image}/low.webp` : null,
+          large: card.image ? `${card.image}/high.webp` : null
+        },
+        set: card.set || { id: card.id.split('-')[0], name: 'Unknown Set' },
+        rarity: card.rarity || 'Unknown',
+        hp: card.hp,
+        types: card.types,
+        attacks: card.attacks,
+        weaknesses: card.weaknesses,
+        resistances: card.resistances,
+        retreatCost: card.retreat,
+        // Pricing from TCGdex!
+        tcgplayer: card.pricing?.tcgplayer || null,
+        cardmarket: card.pricing?.cardmarket || null
+      }
+    };
+    res.json(transformed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -249,8 +290,21 @@ app.get('/api/cards/:id', async (req, res) => {
 
 app.get('/api/sets', async (req, res) => {
   try {
-    const data = await fetchPokemonAPI('/sets?orderBy=-releaseDate', 'all_sets', 86400000); // Cache 24h
-    res.json(data);
+    const sets = await fetchPokemonAPI('/sets', 'all_sets', 86400000); // Cache 24h
+    
+    // Transform to match frontend expectations
+    const transformed = sets.map(set => ({
+      id: set.id,
+      name: set.name,
+      images: {
+        logo: set.logo || null,
+        symbol: set.symbol || null
+      },
+      total: set.cardCount?.total || 0
+    }));
+    
+    // Sort by most recent first (reverse order since TCGdex returns chronological)
+    res.json({ data: transformed.reverse() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -258,8 +312,21 @@ app.get('/api/sets', async (req, res) => {
 
 app.get('/api/sets/:id', async (req, res) => {
   try {
-    const data = await fetchPokemonAPI(`/sets/${req.params.id}`, `set:${req.params.id}`);
-    res.json(data);
+    const set = await fetchPokemonAPI(`/sets/${req.params.id}`, `set:${req.params.id}`);
+    
+    const transformed = {
+      data: {
+        id: set.id,
+        name: set.name,
+        images: {
+          logo: set.logo || null,
+          symbol: set.symbol || null
+        },
+        total: set.cardCount?.total || 0,
+        cards: set.cards || []
+      }
+    };
+    res.json(transformed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -268,9 +335,30 @@ app.get('/api/sets/:id', async (req, res) => {
 app.get('/api/sets/:id/cards', async (req, res) => {
   try {
     const { page = 1, pageSize = 50 } = req.query;
-    const endpoint = `/cards?q=set.id:${req.params.id}&page=${page}&pageSize=${pageSize}&orderBy=number`;
-    const data = await fetchPokemonAPI(endpoint);
-    res.json(data);
+    // Get full set info which includes cards list
+    const set = await fetchPokemonAPI(`/sets/${req.params.id}`, `set:${req.params.id}`);
+    
+    const cards = set.cards || [];
+    const startIdx = (page - 1) * pageSize;
+    const paginatedCards = cards.slice(startIdx, startIdx + parseInt(pageSize));
+    
+    // Transform cards
+    const transformedCards = paginatedCards.map(card => ({
+      id: card.id,
+      name: card.name,
+      images: { 
+        small: card.image ? `${card.image}/low.webp` : null,
+        large: card.image ? `${card.image}/high.webp` : null
+      },
+      localId: card.localId
+    }));
+    
+    res.json({ 
+      data: transformedCards,
+      totalCount: cards.length,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
