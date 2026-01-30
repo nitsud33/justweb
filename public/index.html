@@ -1032,10 +1032,31 @@
     /* Category Switcher */
     .category-switcher {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.75rem;
       background: var(--bg-input);
-      padding: 0.25rem;
+      padding: 0.5rem;
       border-radius: 12px;
+    }
+    
+    .category-group {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding-right: 0.75rem;
+      border-right: 1px solid var(--border);
+    }
+    
+    .category-group:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+    
+    .category-group-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 0.5rem;
+      white-space: nowrap;
     }
     
     .category-btn {
@@ -1045,11 +1066,11 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.75rem;
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 500;
     }
     
@@ -1078,8 +1099,36 @@
       color: white;
     }
     
+    .category-btn.active[data-category="baseball"] {
+      background: #c41e3a;
+      color: white;
+    }
+    
+    .category-btn.active[data-category="basketball"] {
+      background: #fd5a1e;
+      color: white;
+    }
+    
+    .category-btn.active[data-category="football"] {
+      background: #013369;
+      color: white;
+    }
+    
     .category-btn span {
-      font-size: 1.1rem;
+      font-size: 1rem;
+    }
+    
+    @media (max-width: 1200px) {
+      .category-switcher {
+        flex-wrap: wrap;
+      }
+      .category-group {
+        border-right: none;
+        padding-right: 0;
+      }
+      .category-group-label {
+        display: none;
+      }
     }
     
     /* Category badges on cards */
@@ -1123,6 +1172,162 @@
       color: var(--warning);
       font-weight: bold;
     }
+
+    /* Sports card specific styles */
+    .sports-card-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.5rem;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    
+    .sports-card-info .player-name {
+      color: var(--text);
+      font-weight: 500;
+      width: 100%;
+    }
+    
+    .sports-card-info .card-year {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+    
+    .rookie-badge {
+      background: linear-gradient(135deg, #ffd700, #ffb700);
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+    
+    .grade-badge {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+    
+    .grade-badge.psa {
+      border-color: #e00000;
+      color: #e00000;
+    }
+    
+    .grade-badge.bgs {
+      border-color: #0066cc;
+      color: #0066cc;
+    }
+    
+    .grade-badge.sgc {
+      border-color: #00a86b;
+      color: #00a86b;
+    }
+    
+    .grade-badge.cgc {
+      border-color: #9b59b6;
+      color: #9b59b6;
+    }
+
+    /* Sports category colors */
+    .card-category-badge.baseball { background: #c41e3a; }
+    .card-category-badge.basketball { background: #fd5a1e; }
+    .card-category-badge.football { background: #013369; }
+    
+    /* Graded prices table */
+    .graded-prices {
+      margin-top: 1rem;
+      background: var(--bg-input);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .graded-prices h4 {
+      padding: 0.75rem 1rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    
+    .graded-prices-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+    
+    .grade-price-item {
+      padding: 0.5rem;
+      text-align: center;
+      background: var(--bg-input);
+    }
+    
+    .grade-price-item .grade {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    
+    .grade-price-item .price {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--success);
+    }
+    
+    .grade-price-item .price.null {
+      color: var(--text-muted);
+      font-weight: normal;
+    }
+    
+    /* Population report */
+    .population-report {
+      margin-top: 1rem;
+    }
+    
+    .population-report h4 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .pop-grader-section {
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+    }
+    
+    .pop-grader-header {
+      padding: 0.5rem 1rem;
+      background: var(--bg-card);
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    
+    .pop-grades {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 0.5rem;
+      gap: 0.5rem;
+    }
+    
+    .pop-grade-item {
+      background: var(--bg-card);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    
+    .pop-grade-item .grade {
+      color: var(--text-muted);
+    }
+    
+    .pop-grade-item .pop {
+      color: var(--primary);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -1134,15 +1339,30 @@
     
     <!-- Category Switcher -->
     <div id="categorySwitcher" class="category-switcher" style="display: none;">
-      <button class="category-btn active" data-category="pokemon" onclick="switchCategory('pokemon')">
-        <span>⚡</span> Pokémon
-      </button>
-      <button class="category-btn" data-category="mtg" onclick="switchCategory('mtg')">
-        <span>🔮</span> MTG
-      </button>
-      <button class="category-btn" data-category="yugioh" onclick="switchCategory('yugioh')">
-        <span>🎴</span> Yu-Gi-Oh
-      </button>
+      <div class="category-group">
+        <span class="category-group-label">TCG</span>
+        <button class="category-btn active" data-category="pokemon" onclick="switchCategory('pokemon')">
+          <span>⚡</span> Pokémon
+        </button>
+        <button class="category-btn" data-category="mtg" onclick="switchCategory('mtg')">
+          <span>🔮</span> MTG
+        </button>
+        <button class="category-btn" data-category="yugioh" onclick="switchCategory('yugioh')">
+          <span>🎴</span> Yu-Gi-Oh
+        </button>
+      </div>
+      <div class="category-group">
+        <span class="category-group-label">Sports</span>
+        <button class="category-btn" data-category="baseball" onclick="switchCategory('baseball')">
+          <span>⚾</span> Baseball
+        </button>
+        <button class="category-btn" data-category="basketball" onclick="switchCategory('basketball')">
+          <span>🏀</span> Basketball
+        </button>
+        <button class="category-btn" data-category="football" onclick="switchCategory('football')">
+          <span>🏈</span> Football
+        </button>
+      </div>
     </div>
     
     <nav id="mainNav" style="display: none;">
@@ -1484,6 +1704,9 @@
               <canvas id="modalPriceChart" height="100"></canvas>
             </div>
             
+            <!-- Sports Card Details (graded prices + population) -->
+            <div id="modalSportsInfo" style="display: none; margin-top: 1rem;"></div>
+            
             <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
               <button class="btn btn-success" id="modalAddCollection" onclick="addToCollection()">
                 ➕ Add to Collection
@@ -1631,14 +1854,32 @@
     const CATEGORY_NAMES = {
       pokemon: 'Pokémon TCG',
       mtg: 'Magic: The Gathering',
-      yugioh: 'Yu-Gi-Oh!'
+      yugioh: 'Yu-Gi-Oh!',
+      baseball: 'Baseball Cards',
+      basketball: 'Basketball Cards',
+      football: 'Football Cards'
     };
     
     const CATEGORY_ICONS = {
       pokemon: '⚡',
       mtg: '🔮',
-      yugioh: '🎴'
+      yugioh: '🎴',
+      baseball: '⚾',
+      basketball: '🏀',
+      football: '🏈'
     };
+    
+    const CATEGORY_COLORS = {
+      pokemon: '#ffcb05',
+      mtg: '#9b59b6',
+      yugioh: '#e74c3c',
+      baseball: '#c41e3a',
+      basketball: '#fd5a1e',
+      football: '#013369'
+    };
+    
+    // Sports categories for special handling
+    const SPORTS_CATEGORIES = ['baseball', 'basketball', 'football'];
     
     // Init
     document.addEventListener('DOMContentLoaded', () => {
@@ -2052,6 +2293,14 @@
                   ${card.def !== undefined ? `DEF: <span>${card.def}</span>` : ''}
                 </div>
               ` : ''}
+              ${SPORTS_CATEGORIES.includes(category) ? `
+                <div class="sports-card-info">
+                  ${card.playerName || card.player_name ? `<div class="player-name">👤 ${card.playerName || card.player_name}</div>` : ''}
+                  ${card.year ? `<div class="card-year">${card.year}</div>` : ''}
+                  ${card.rookieCard || card.rookie_card ? `<span class="rookie-badge">RC</span>` : ''}
+                  ${card.grade || card.grader ? `<div class="grade-badge ${(card.grader || '').toLowerCase()}">${card.grader || ''} ${card.grade || ''}</div>` : ''}
+                </div>
+              ` : ''}
               ${price ? `<div class="card-price">$${typeof price === 'number' ? price.toFixed(2) : price}</div>` : ''}
               ${context === 'collection' ? `
                 <div class="card-actions">
@@ -2111,12 +2360,28 @@
         const price = card.tcgplayer?.prices?.holofoil?.market || 
                      card.tcgplayer?.prices?.normal?.market ||
                      card.tcgplayer?.prices?.reverseHolofoil?.market ||
+                     card.prices?.market ||
                      card.market_price || null;
         document.getElementById('modalCardPrice').textContent = price ? `$${price.toFixed(2)}` : '-';
         
-        // TCGPlayer link
+        // Sports card specific info
+        const sportsInfoDiv = document.getElementById('modalSportsInfo');
+        if (SPORTS_CATEGORIES.includes(cardCategory) && sportsInfoDiv) {
+          sportsInfoDiv.style.display = 'block';
+          sportsInfoDiv.innerHTML = renderSportsCardDetails(card);
+        } else if (sportsInfoDiv) {
+          sportsInfoDiv.style.display = 'none';
+        }
+        
+        // TCGPlayer link (or eBay for sports cards)
         if (card.tcgplayer?.url) {
           document.getElementById('tcgplayerLink').href = card.tcgplayer.url;
+          document.getElementById('tcgplayerLink').style.display = 'inline-flex';
+        } else if (SPORTS_CATEGORIES.includes(cardCategory)) {
+          // Link to eBay search for sports cards
+          const searchQuery = encodeURIComponent(`${card.name || card.card_name}`);
+          document.getElementById('tcgplayerLink').href = `https://www.ebay.com/sch/i.html?_nkw=${searchQuery}&LH_Complete=1&LH_Sold=1`;
+          document.getElementById('tcgplayerLink').textContent = '🔍 eBay Sold';
           document.getElementById('tcgplayerLink').style.display = 'inline-flex';
         } else {
           document.getElementById('tcgplayerLink').style.display = 'none';
@@ -2136,6 +2401,106 @@
       } catch (e) {
         showToast('Error loading card details', 'error');
       }
+    }
+    
+    // Render sports card details (graded prices + population)
+    function renderSportsCardDetails(card) {
+      let html = '';
+      
+      // Player and Year info
+      if (card.playerName || card.player_name || card.year || card.team) {
+        html += `
+          <div class="sports-card-header">
+            ${card.playerName || card.player_name ? `<div class="player-name">👤 <strong>${card.playerName || card.player_name}</strong></div>` : ''}
+            ${card.team ? `<div class="team">${card.team}</div>` : ''}
+            ${card.year ? `<div class="year">${card.year}</div>` : ''}
+            ${card.rookieCard || card.rookie_card ? `<span class="rookie-badge">ROOKIE CARD</span>` : ''}
+          </div>
+        `;
+      }
+      
+      // Graded prices
+      const gp = card.gradedPrices || card.prices?.graded;
+      if (gp) {
+        html += `
+          <div class="graded-prices">
+            <h4>💰 Price by Grade</h4>
+            <div class="graded-prices-grid">
+              ${gp.raw ? `<div class="grade-price-item"><div class="grade">Raw</div><div class="price">$${formatPrice(gp.raw)}</div></div>` : ''}
+        `;
+        
+        // PSA grades
+        if (gp.psa) {
+          const psaGrades = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].filter(g => gp.psa[g]);
+          for (const grade of psaGrades) {
+            html += `<div class="grade-price-item"><div class="grade">PSA ${grade}</div><div class="price">$${formatPrice(gp.psa[grade])}</div></div>`;
+          }
+        }
+        
+        // BGS grades
+        if (gp.bgs) {
+          const bgsGrades = ['pristine', 10, 9.5, 9, 8.5, 8].filter(g => gp.bgs[g]);
+          for (const grade of bgsGrades) {
+            const label = grade === 'pristine' ? 'BGS 10 Black' : `BGS ${grade}`;
+            html += `<div class="grade-price-item"><div class="grade">${label}</div><div class="price">$${formatPrice(gp.bgs[grade])}</div></div>`;
+          }
+        }
+        
+        // SGC grades
+        if (gp.sgc) {
+          const sgcGrades = [10, 9].filter(g => gp.sgc[g]);
+          for (const grade of sgcGrades) {
+            html += `<div class="grade-price-item"><div class="grade">SGC ${grade}</div><div class="price">$${formatPrice(gp.sgc[grade])}</div></div>`;
+          }
+        }
+        
+        html += `</div></div>`;
+      }
+      
+      // Population reports
+      if (card.populationReports && card.populationReports.length > 0) {
+        const byGrader = {};
+        for (const pop of card.populationReports) {
+          if (!byGrader[pop.grader]) byGrader[pop.grader] = [];
+          byGrader[pop.grader].push(pop);
+        }
+        
+        const totalPop = card.populationReports.reduce((sum, p) => sum + (p.population || 0), 0);
+        
+        html += `
+          <div class="population-report">
+            <h4>📊 Population Report <span style="font-weight: normal; color: var(--text-muted);">(${totalPop.toLocaleString()} total graded)</span></h4>
+        `;
+        
+        for (const [grader, pops] of Object.entries(byGrader)) {
+          html += `
+            <div class="pop-grader-section">
+              <div class="pop-grader-header">${grader}</div>
+              <div class="pop-grades">
+          `;
+          
+          // Sort grades descending
+          pops.sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade));
+          
+          for (const pop of pops) {
+            const popClass = pop.population < 50 ? 'rare' : (pop.population < 500 ? 'uncommon' : '');
+            html += `<div class="pop-grade-item ${popClass}"><span class="grade">${pop.grade}:</span> <span class="pop">${(pop.population || 0).toLocaleString()}</span></div>`;
+          }
+          
+          html += `</div></div>`;
+        }
+        
+        html += `</div>`;
+      }
+      
+      return html || '<p class="text-muted">No detailed pricing data available</p>';
+    }
+    
+    function formatPrice(price) {
+      if (!price) return '-';
+      if (price >= 1000000) return (price / 1000000).toFixed(2) + 'M';
+      if (price >= 1000) return (price / 1000).toFixed(1) + 'K';
+      return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     
     async function loadPriceHistory(cardId) {

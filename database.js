@@ -173,6 +173,85 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_match_scores_user ON match_scores(user1_id);
   CREATE INDEX IF NOT EXISTS idx_want_list_card ON want_list(card_id);
   CREATE INDEX IF NOT EXISTS idx_collection_card ON collection(card_id);
+
+  -- Sports card specific tables
+  CREATE TABLE IF NOT EXISTS sports_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    team TEXT,
+    year INTEGER NOT NULL,
+    set_name TEXT NOT NULL,
+    set_id TEXT,
+    card_number TEXT,
+    sport TEXT NOT NULL,
+    rarity TEXT,
+    image_url TEXT,
+    -- Raw/ungraded pricing
+    price_raw REAL,
+    -- PSA graded prices
+    price_psa_1 REAL,
+    price_psa_2 REAL,
+    price_psa_3 REAL,
+    price_psa_4 REAL,
+    price_psa_5 REAL,
+    price_psa_6 REAL,
+    price_psa_7 REAL,
+    price_psa_8 REAL,
+    price_psa_9 REAL,
+    price_psa_10 REAL,
+    -- BGS graded prices
+    price_bgs_8 REAL,
+    price_bgs_8_5 REAL,
+    price_bgs_9 REAL,
+    price_bgs_9_5 REAL,
+    price_bgs_10 REAL,
+    price_bgs_pristine REAL,
+    -- SGC graded prices
+    price_sgc_9 REAL,
+    price_sgc_10 REAL,
+    -- Metadata
+    rookie_card INTEGER DEFAULT 0,
+    parallel TEXT,
+    notes TEXT,
+    last_price_update DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Population reports for graded cards
+  CREATE TABLE IF NOT EXISTS population_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id TEXT NOT NULL,
+    grader TEXT NOT NULL,
+    grade TEXT NOT NULL,
+    population INTEGER DEFAULT 0,
+    plus_population INTEGER DEFAULT 0,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(card_id, grader, grade)
+  );
+
+  -- Sports card sets/years
+  CREATE TABLE IF NOT EXISTS sports_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    set_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    sport TEXT NOT NULL,
+    manufacturer TEXT,
+    total_cards INTEGER,
+    description TEXT,
+    image_url TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Index for sports cards
+  CREATE INDEX IF NOT EXISTS idx_sports_cards_player ON sports_cards(player_name);
+  CREATE INDEX IF NOT EXISTS idx_sports_cards_year ON sports_cards(year);
+  CREATE INDEX IF NOT EXISTS idx_sports_cards_sport ON sports_cards(sport);
+  CREATE INDEX IF NOT EXISTS idx_sports_cards_set ON sports_cards(set_name);
+  CREATE INDEX IF NOT EXISTS idx_population_card ON population_reports(card_id);
 `);
 
 // Migrations
@@ -221,16 +300,66 @@ try {
     console.log('Migration: Added category column to want_list table');
   }
   
-  // Seed default categories
+  // Seed default categories (including sports)
   const existingCategories = db.prepare("SELECT COUNT(*) as count FROM categories").get();
   if (existingCategories.count === 0) {
     db.prepare(`
       INSERT INTO categories (slug, name, description, icon, api_source, color) VALUES
       ('pokemon', 'Pokémon TCG', 'Pokémon Trading Card Game', '⚡', 'tcgdex', '#ffcb05'),
       ('mtg', 'Magic: The Gathering', 'The original trading card game', '🔮', 'scryfall', '#9b59b6'),
-      ('yugioh', 'Yu-Gi-Oh!', 'Yu-Gi-Oh! Trading Card Game', '🎴', 'ygoprodeck', '#e74c3c')
+      ('yugioh', 'Yu-Gi-Oh!', 'Yu-Gi-Oh! Trading Card Game', '🎴', 'ygoprodeck', '#e74c3c'),
+      ('baseball', 'Baseball Cards', 'Vintage & Modern Baseball Cards', '⚾', 'sports_internal', '#c41e3a'),
+      ('basketball', 'Basketball Cards', 'NBA & Basketball Cards', '🏀', 'sports_internal', '#fd5a1e'),
+      ('football', 'Football Cards', 'NFL & Football Cards', '🏈', 'sports_internal', '#013369')
     `).run();
-    console.log('Migration: Seeded default categories');
+    console.log('Migration: Seeded default categories (including sports)');
+  }
+  
+  // Add sports categories if they don't exist
+  const sportsCategories = [
+    { slug: 'baseball', name: 'Baseball Cards', desc: 'Vintage & Modern Baseball Cards', icon: '⚾', color: '#c41e3a' },
+    { slug: 'basketball', name: 'Basketball Cards', desc: 'NBA & Basketball Cards', icon: '🏀', color: '#fd5a1e' },
+    { slug: 'football', name: 'Football Cards', desc: 'NFL & Football Cards', icon: '🏈', color: '#013369' }
+  ];
+  
+  for (const cat of sportsCategories) {
+    const exists = db.prepare("SELECT id FROM categories WHERE slug = ?").get(cat.slug);
+    if (!exists) {
+      db.prepare(`
+        INSERT INTO categories (slug, name, description, icon, api_source, color)
+        VALUES (?, ?, ?, ?, 'sports_internal', ?)
+      `).run(cat.slug, cat.name, cat.desc, cat.icon, cat.color);
+      console.log(`Migration: Added ${cat.name} category`);
+    }
+  }
+  
+  // Add grading fields to collection if missing
+  const collectionColsCheck = db.prepare("PRAGMA table_info(collection)").all();
+  const collectionColNamesCheck = collectionColsCheck.map(c => c.name);
+  
+  if (!collectionColNamesCheck.includes('grade')) {
+    db.exec("ALTER TABLE collection ADD COLUMN grade TEXT");
+    console.log('Migration: Added grade column to collection table');
+  }
+  
+  if (!collectionColNamesCheck.includes('grader')) {
+    db.exec("ALTER TABLE collection ADD COLUMN grader TEXT");
+    console.log('Migration: Added grader column to collection table');
+  }
+  
+  if (!collectionColNamesCheck.includes('cert_number')) {
+    db.exec("ALTER TABLE collection ADD COLUMN cert_number TEXT");
+    console.log('Migration: Added cert_number column to collection table');
+  }
+  
+  if (!collectionColNamesCheck.includes('player_name')) {
+    db.exec("ALTER TABLE collection ADD COLUMN player_name TEXT");
+    console.log('Migration: Added player_name column to collection table');
+  }
+  
+  if (!collectionColNamesCheck.includes('year')) {
+    db.exec("ALTER TABLE collection ADD COLUMN year INTEGER");
+    console.log('Migration: Added year column to collection table');
   }
 } catch (err) {
   console.error('Migration error:', err.message);
